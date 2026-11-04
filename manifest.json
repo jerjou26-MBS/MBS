@@ -1,0 +1,13 @@
+{
+  "background_color": "#ffffff",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "MyBikeStats",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "MBS",
+  "start_url": "/",
+  "theme_color": "#ffffff",
+  "id": "MyBikeStats",
+  "description": "MyBikeStats is a very simple dashboard to display and record you bike activities data"
+}
