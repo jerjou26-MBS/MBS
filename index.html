@@ -1068,77 +1068,78 @@ function exportXLSX() {
 // ==========================================
 
 function importData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            const fileName = file.name.toLowerCase();
+    const file = event.target.files[0];
+    if (!file) return;
 
-            reader.onload = function(e) {
-                try {
-                    let importedRides = [];
-                    if (fileName.endsWith('.json')) {
-                        importedRides = JSON.parse(e.target.result);
-                    } else {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                        const firstSheetName = workbook.SheetNames[0];
-                        const worksheet = workbook.Sheets[firstSheetName];
-                        importedRides = XLSX.utils.sheet_to_json(worksheet, { raw: false });
-                    }
+    const reader = new FileReader();
+    const fileName = file.name.toLowerCase();
 
-                    if (!Array.isArray(importedRides) || importedRides.length === 0) {
-                        alert("Fichier d'import vide ou format invalide.");
-                        return;
-                    }
+    reader.onload = function(e) {
+        try {
+            let importedRides = [];
 
-                    let addedCount = 0;
-                    importedRides.forEach(item => {
-                        // Normalisation sécurisée de la date
-                        let rawDate = item.date || item.Date || new Date();
-                        let dateStr = new Date(rawDate).toISOString().slice(0, 10);
-                        if (isNaN(new Date(rawDate).getTime())) {
-                            dateStr = new Date().toISOString().slice(0, 10);
-                        }
+            if (fileName.endsWith('.json')) {
+                importedRides = JSON.parse(e.target.result);
+            } else {
+                // Traitement CSV ou XLSX via SheetJS
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                importedRides = XLSX.utils.sheet_to_json(worksheet);
+            }
 
-                        // Normalisation de la durée (gère les objets heure ou texte)
-                        let rawDuration = item.duration || item.Duree || item.Durée || '01:00:00';
-                        if (typeof rawDuration === 'object' && rawDuration instanceof Date) {
-                            rawDuration = rawDuration.toTimeString().slice(0, 8);
-                        } else {
-                            rawDuration = String(rawDuration).trim();
-                            if (!rawDuration.includes(':')) {
-                                rawDuration = '01:00:00';
-                            }
-                        }
+            if (!Array.isArray(importedRides) || importedRides.length === 0) {
+                alert("Fichier d'import vide ou format invalide.");
+                return;
+            }
 
-                        const newRide = {
-                            id: item.id || item.ID || Date.now().toString() + Math.random().toString(36).substr(2, 4),
-                            date: dateStr,
-                            activity: item.activity || item.Activité || item.Activite || 'VTT',
-                            location: item.location || item.Lieu || '',
-                            distance: parseFloat(item.distance || item.Distance_km || item.Distance || 0),
-                            elevation: parseInt(item.elevation || item.Dplus_m || item.Dplus || 0),
-                            duration: rawDuration,
-                            route: item.route || item.Parcours || '',
-                            conditions: item.conditions || item.Meteo || item.Météo || '',
-                            it: item.it || item.IT || 'Sec',
-                            ic: item.ic || item.IC || 'Pas de vent',
-                            itemp: item.itemp || item.Itemp || 'Moyen 12-19',
-                            ip: item.ip || item.IP || 'Pas de pluie'
-                        };
+            // Normalisation & fusion des données
+            let addedCount = 0;
+            importedRides.forEach(item => {
+                const newRide = {
+                    id: item.id || item.ID || Date.now().toString() + Math.random().toString(36).substr(2, 4),
+                    date: item.date || item.Date || new Date().toISOString().slice(0, 10),
+                    activity: item.activity || item.Activité || item.Activite || 'VTT',
+                    location: item.location || item.Lieu || '',
+                    distance: parseFloat(item.distance || item.Distance_km || item.Distance || 0),
+                    elevation: parseInt(item.elevation || item.Dplus_m || item.Dplus || 0),
+                    duration: item.duration || item.Duree || item.Durée || '01:00:00',
+                    route: item.route || item.Parcours || '',
+                    conditions: item.conditions || item.Meteo || item.Météo || '',
+                    it: item.it || item.IT || 'Sec',
+                    ic: item.ic || item.IC || 'Pas de vent',
+                    itemp: item.itemp || item.Itemp || 'Moyen 12-19',
+                    ip: item.ip || item.IP || 'Pas de pluie'
+                };
 
-                        if (!rides.some(r => r.id === newRide.id)) {
-                            rides.push(newRide);
-                            addedCount++;
-                        }
-                    });
+                // Éviter les doublons basés sur l'ID
+                if (!rides.some(r => r.id === newRide.id)) {
+                    rides.push(newRide);
+                    addedCount++;
+                }
+            });
 
-                    saveRidesToStorage();
-                    populateYearFilter();
-                    applyFilters();
-                    alert(`${addedCount} nouvelle(s) sortie(s) importée(s) avec succès !`);
-                    event.target.value = '';
-                } cat
+            // Sauvegarde dans le localStorage
+            saveRidesToStorage();
+            populateYearFilter();
+            applyFilters();
+
+            alert(`${addedCount} nouvelle(s) sortie(s) importée(s) avec succès !`);
+            event.target.value = ''; // Réinitialiser le champ de fichier
+
+        } catch (err) {
+            console.error(err);
+            alert("Erreur lors de la lecture du fichier d'importation.");
+        }
+    };
+
+    if (fileName.endsWith('.json')) {
+        reader.readAsText(file);
+    } else {
+        reader.readAsArrayBuffer(file);
+    }
+}
 </script>
 </body>
 </html>
