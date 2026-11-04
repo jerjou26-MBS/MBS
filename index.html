@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>VeloStats - Suivi & Tableau de Bord Vélo</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -971,6 +974,16 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js');
   }
+</script>
+<script>
+  // Demande le mode plein écran si l'API est supportée par le conteneur WebView
+  document.addEventListener("DOMContentLoaded", function() {
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(err => {
+        // Ignorer si le conteneur bloque le plein écran automatique
+      });
+    }
+  });
 </script>
 </body>
 </html>
