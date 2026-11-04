@@ -887,9 +887,9 @@
 
             list.forEach(r => {
                 const calc = computeRideCalculatedData(r);
-                if (calc.difficulty < 12) countsDiff[0]++;
-                else if (calc.difficulty < 20) countsDiff[1]++;
-                else if (calc.difficulty < 30) countsDiff[2]++;
+                if (calc.difficulty < 5) countsDiff[0]++;
+                else if (calc.difficulty < 10) countsDiff[1]++;
+                else if (calc.difficulty < 15) countsDiff[2]++;
                 else countsDiff[3]++;
 
                 if (countsAct[r.activity] !== undefined) {
