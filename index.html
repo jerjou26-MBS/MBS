@@ -102,7 +102,7 @@
                     <img src="logo.png" onerror="this.style.display='none'" alt="My Bike Stats" class="w-10 h-10 rounded-xl object-cover shadow-lg shadow-orange-500/20">
                     <div>
                         <span class="text-lg sm:text-xl font-bold bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">My Bike Stats</span>
-                        <span class="hidden sm:inline-block text-xs text-slate-400 ml-2 font-mono">v1.1</span>
+                        <span class="hidden sm:inline-block text-xs text-slate-400 ml-2 font-mono">v1.2</span>
                     </div>
                 </div>
 
@@ -297,17 +297,22 @@
             <!-- Synthèse des Records Section -->
             <section class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
                 <div class="p-5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <h3 class="text-base font-semibold text-slate-200 flex items-center gap-2">
-                        <i class="fa-solid fa-trophy text-amber-400"></i>
-                        <span data-i18n="recordsSummaryTitle">Synthèse des Records</span>
-                    </h3>
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <h3 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-trophy text-amber-400"></i>
+                            <span data-i18n="recordsSummaryTitle">Synthèse des Records</span>
+                        </h3>
+                        <span class="text-[11px] bg-amber-500/10 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full font-medium" data-i18n="autoRecordsBadge">
+                            Détection auto + manuel
+                        </span>
+                    </div>
 
                     <!-- Filtres dédiés aux Records -->
                     <div class="flex flex-wrap items-center gap-2">
-                        <select id="recordFilterYear" onchange="updateRecordsSection()" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500">
+                        <select id="recordFilterYear" onchange="refreshRecordsAndHistory()" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500">
                             <option value="ALL">Toutes les années</option>
                         </select>
-                        <select id="recordFilterActivity" onchange="updateRecordsSection()" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500">
+                        <select id="recordFilterActivity" onchange="refreshRecordsAndHistory()" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500">
                             <option value="ALL">Toutes les activités</option>
                             <option value="VTT">VTT</option>
                             <option value="Gravel">Gravel</option>
@@ -527,15 +532,15 @@
                     </div>
                 </div>
 
-                <!-- FTP (W) & Records (Nouveaux champs libres) -->
+                <!-- FTP (W) & Records (Champs libres) -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-medium text-slate-400 mb-1">FTP (W)</label>
                         <input type="text" id="inputFtp" placeholder="ex: 245" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblRecords">Records</label>
-                        <input type="text" id="inputRecords" placeholder="ex: Meilleur temps montée, Record distance..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+                        <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblRecordsManual">Records (manuel, en plus de l'auto)</label>
+                        <input type="text" id="inputRecords" placeholder="ex: KOM montée Cassagnes..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
                     </div>
                 </div>
 
@@ -564,7 +569,7 @@
                                 <option value="Très Gras">Très Gras (1.4)</option>
                             </select>
                         </div>
-                        <!-- IC (Vent mis à jour avec les plages) -->
+                        <!-- IC (Vent avec les plages) -->
                         <div>
                             <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblIC">IC (Vent)</label>
                             <select id="inputIC" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-xs text-slate-100 focus:outline-none focus:border-orange-500">
@@ -694,6 +699,12 @@
                 chartActTitle: "Répartition par Activité",
                 chartProgTitle: "Progression (Distance / D+)",
                 recordsSummaryTitle: "Synthèse des Records",
+                autoRecordsBadge: "Détection auto + manuel",
+                autoRecKm: "Record Distance",
+                autoRecDur: "Record Durée",
+                autoRecElev: "Record D+",
+                autoRecAvg: "Record Moyenne",
+                autoRecDiff: "Record Difficulté",
                 colCriteria: "Critère",
                 colDate: "Date",
                 colLocation: "Lieu",
@@ -735,7 +746,7 @@
                 lblDistance: "Distance (km) *",
                 lblElevation: "D+ (mètres) *",
                 lblDuration: "Durée (HH:MM:SS) *",
-                lblRecords: "Records",
+                lblRecordsManual: "Records (manuel, en plus de l'auto)",
                 lblRoute: "Parcours / Description",
                 lblWeather: "Conditions météo",
                 envFactors: "Facteurs environnementaux",
@@ -779,6 +790,12 @@
                 chartActTitle: "Activity Breakdown",
                 chartProgTitle: "Progression (Distance / Elev.)",
                 recordsSummaryTitle: "Records Summary",
+                autoRecordsBadge: "Auto + manual detection",
+                autoRecKm: "Distance Record",
+                autoRecDur: "Duration Record",
+                autoRecElev: "Elevation D+ Record",
+                autoRecAvg: "Avg Speed Record",
+                autoRecDiff: "Difficulty Record",
                 colCriteria: "Criteria",
                 colDate: "Date",
                 colLocation: "Location",
@@ -820,7 +837,7 @@
                 lblDistance: "Distance (km) *",
                 lblElevation: "Elevation D+ (m) *",
                 lblDuration: "Duration (HH:MM:SS) *",
-                lblRecords: "Records",
+                lblRecordsManual: "Records (manual, alongside auto)",
                 lblRoute: "Route / Description",
                 lblWeather: "Weather Conditions",
                 envFactors: "Environmental Factors",
@@ -867,7 +884,7 @@
                 elevation: 565,
                 duration: '01:45:07',
                 ftp: '235',
-                records: 'Record montée Cassagnes',
+                records: '',
                 conditions: 'PM - 4° - Soleil',
                 route: 'Théron - Cassagnes - Martignac',
                 it: 'Sec',
@@ -901,7 +918,7 @@
                 elevation: 910,
                 duration: '02:30:00',
                 ftp: '250',
-                records: 'Record distance 2026',
+                records: '',
                 conditions: 'Soleil 15°',
                 route: 'Circuit des Crêtes',
                 it: 'Sec',
@@ -918,17 +935,19 @@
         let chartHistoryObj = null;
         let chartRecordsEvoObj = null;
 
+        // Map des records détectés automatiquement : { [rideId]: [ { key, label } ] }
+        let autoRecordsByRideId = {};
+
         // État du tri de l'historique
         let sortState = { column: 'date', direction: 'desc' };
 
-        // Coefficient Data Maps (incluant rétrocompatibilité)
+        // Coefficient Data Maps
         const IT_VALUES = { 'Sec': 1.0, 'Gras': 1.2, 'Très Gras': 1.4 };
         const IC_VALUES = {
             'Vent faible < 15': 1.0,
             'Vent modéré 15-30': 1.2,
             'Vent fort 30-50': 1.3,
             'Vent très fort >50': 1.5,
-            // Rétrocompatibilité
             'Pas de vent': 1.0,
             'Vent modéré': 1.2,
             'Vent Moyen': 1.3,
@@ -937,7 +956,6 @@
         const ITEMP_VALUES = { 'Moyen 12-19': 1.0, 'Froid 6-11': 1.25, 'Chaud 20-28': 1.25, 'Très Froid <5': 1.4, 'Très Chaud >28': 1.4 };
         const IP_VALUES = { 'Pas de pluie': 1.0, 'Pluie': 1.1, 'Grosse Pluie': 1.3 };
 
-        // Normalisation des anciennes valeurs IC vers les nouvelles options du formulaire
         function normalizeICValue(ic) {
             if (ic === 'Pas de vent') return 'Vent faible < 15';
             if (ic === 'Vent modéré') return 'Vent modéré 15-30';
@@ -946,7 +964,6 @@
             return ic || 'Vent faible < 15';
         }
 
-        // Helpers Dates (Support champ libre JJ/MM/AAAA ou AAAA-MM-JJ)
         function parseFlexibleDate(dateStr) {
             if (!dateStr) return new Date(0);
             const str = String(dateStr).trim();
@@ -996,7 +1013,6 @@
             return `${d}/${m}/${y}`;
         }
 
-        // Helper: Convert HH:MM:SS to total hours
         function durationToHours(durationStr) {
             if (!durationStr) return 0;
             const parts = String(durationStr).split(':').map(Number);
@@ -1008,7 +1024,6 @@
             return 0;
         }
 
-        // Calculations for individual ride
         function computeRideCalculatedData(ride) {
             const hours = durationToHours(ride.duration);
             const avgSpeed = hours > 0 ? (ride.distance / hours) : 0;
@@ -1039,7 +1054,6 @@
             };
         }
 
-        // Category by Difficulty score
         function getDifficultyCategory(score) {
             const t = i18n[currentLang];
             if (score < 5) return { label: t.diffEasy, color: '#10b981' };
@@ -1048,13 +1062,24 @@
             return { label: t.diffVeryHard, color: '#ef4444' };
         }
 
-        // Gestion de la langue
+        // Retourne la liste combinée des records (automatiques + saisis manuellement) pour une sortie
+        function getEffectiveRecordsText(ride) {
+            const parts = [];
+            const autoList = autoRecordsByRideId[ride.id] || [];
+            if (autoList.length > 0) {
+                parts.push(autoList.map(item => item.label).join(' • '));
+            }
+            if (ride.records && String(ride.records).trim().length > 0) {
+                parts.push(String(ride.records).trim());
+            }
+            return parts.join(' | ');
+        }
+
         function setLanguage(lang) {
             currentLang = lang;
             localStorage.setItem(STORAGE_LANG, lang);
             document.documentElement.lang = lang;
 
-            // Mise à jour visuelle des drapeaux
             const btnFr = document.getElementById('langBtnFr');
             const btnEn = document.getElementById('langBtnEn');
             if (lang === 'fr') {
@@ -1071,7 +1096,6 @@
 
             const t = i18n[lang];
 
-            // Traduction des attributs data-i18n
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
                 if (t[key]) {
@@ -1079,7 +1103,6 @@
                 }
             });
 
-            // Traduction des sélecteurs de filtres
             const monthSel = document.getElementById('filterMonth');
             const currentMonth = monthSel.value;
             monthSel.options[0].textContent = t.allMonths;
@@ -1093,7 +1116,6 @@
 
             populateYearFilter();
 
-            // Mise à jour des labels graphiques
             if (chartDifficultyObj) {
                 chartDifficultyObj.data.labels = t.chartDiffLabels;
             }
@@ -1102,11 +1124,10 @@
                 chartHistoryObj.data.datasets[1].label = t.chartElevLabel;
             }
 
-            applyFilters();
             updateRecordsSection();
+            applyFilters();
         }
 
-        // Initialization
         window.onload = function() {
             loadSettings();
             loadRides();
@@ -1115,7 +1136,6 @@
             setLanguage(currentLang);
         };
 
-        // Load & Save Methods
         function loadSettings() {
             const stored = localStorage.getItem(STORAGE_SETTINGS);
             if (stored) {
@@ -1149,8 +1169,8 @@
 
             localStorage.setItem(STORAGE_SETTINGS, JSON.stringify(settings));
             closeModal('settingsModal');
-            applyFilters();
             updateRecordsSection();
+            applyFilters();
         }
 
         function resetDefaultSettings() {
@@ -1195,7 +1215,6 @@
             if (years.includes(prevRecVal)) recFilterYear.value = prevRecVal;
         }
 
-        // Tri des colonnes de l'historique
         function toggleSort(column) {
             if (sortState.column === column) {
                 sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
@@ -1259,7 +1278,6 @@
             });
         }
 
-        // Filtering System
         function getFilteredRides() {
             const yr = document.getElementById('filterYear').value;
             const mo = document.getElementById('filterMonth').value;
@@ -1286,7 +1304,11 @@
             updateCharts(list);
         }
 
-        // Update Dashboard KPIs
+        function refreshRecordsAndHistory() {
+            updateRecordsSection();
+            updateTable(getFilteredRides());
+        }
+
         function updateKPIs(list) {
             const count = list.length;
             const totalDist = list.reduce((acc, r) => acc + (parseFloat(r.distance) || 0), 0);
@@ -1311,7 +1333,6 @@
             document.getElementById('kpiDiff').textContent = (Math.round(avgDiff * 10) / 10).toFixed(1);
         }
 
-        // Render Data Table
         function updateTable(list) {
             const t = i18n[currentLang];
             const tbody = document.getElementById('ridesTableBody');
@@ -1327,10 +1348,11 @@
                 const calc = computeRideCalculatedData(ride);
                 const diffCat = getDifficultyCategory(calc.difficulty);
                 const formattedDate = formatDisplayDate(ride.date);
-                const hasRecord = ride.records && String(ride.records).trim().length > 0;
+                const effectiveRecords = getEffectiveRecordsText(ride);
+                const hasRecord = effectiveRecords.length > 0;
 
                 const trophyHtml = hasRecord
-                    ? `<i class="fa-solid fa-trophy text-amber-400 mr-1.5 drop-shadow" title="Record : ${String(ride.records).replace(/"/g, '&quot;')}"></i>`
+                    ? `<i class="fa-solid fa-trophy text-amber-400 mr-1.5 drop-shadow" title="Record : ${effectiveRecords.replace(/"/g, '&quot;')}"></i>`
                     : '';
 
                 const tr = document.createElement('tr');
@@ -1350,7 +1372,7 @@
                     <td class="px-4 py-3 max-w-xs">
                         <div class="font-medium text-slate-200 truncate">${ride.location || '-'}</div>
                         <div class="text-xs text-slate-400 truncate">${ride.route || ''}</div>
-                        ${hasRecord ? `<div class="text-[11px] text-amber-400/90 truncate mt-0.5"><i class="fa-solid fa-award mr-1"></i>${ride.records}</div>` : ''}
+                        ${hasRecord ? `<div class="text-[11px] text-amber-400/90 truncate mt-0.5" title="${effectiveRecords.replace(/"/g, '&quot;')}"><i class="fa-solid fa-award mr-1"></i>${effectiveRecords}</div>` : ''}
                     </td>
                     <td class="px-4 py-3 text-right font-semibold text-slate-100 whitespace-nowrap">${ride.distance} <span class="text-xs text-slate-400 font-normal">km</span></td>
                     <td class="px-4 py-3 text-right font-medium text-amber-400 whitespace-nowrap">${ride.elevation} <span class="text-xs text-slate-400 font-normal">m</span></td>
@@ -1391,7 +1413,7 @@
         }
 
         // ==========================================
-        // SYNTHÈSE DES RECORDS & ÉVOLUTION
+        // SYNTHÈSE DES RECORDS & DÉTECTION AUTO
         // ==========================================
         function updateRecordsSection() {
             const t = i18n[currentLang];
@@ -1408,12 +1430,15 @@
             const tbody = document.getElementById('recordsTableBody');
             tbody.innerHTML = '';
 
+            // Réinitialise la map des records automatiques
+            autoRecordsByRideId = {};
+
             const criteriaList = [
-                { key: 'distance', label: t.recRowKm, icon: 'fa-route text-orange-400', getValue: (r, c) => parseFloat(r.distance) || 0 },
-                { key: 'duration', label: t.recRowDur, icon: 'fa-stopwatch text-sky-400', getValue: (r, c) => c.hours },
-                { key: 'elevation', label: t.recRowElev, icon: 'fa-mountain text-amber-400', getValue: (r, c) => parseInt(r.elevation) || 0 },
-                { key: 'speed', label: t.recRowAvg, icon: 'fa-gauge-high text-emerald-400', getValue: (r, c) => c.avgSpeed },
-                { key: 'difficulty', label: t.recRowDiff, icon: 'fa-bolt text-rose-400', getValue: (r, c) => c.difficulty }
+                { key: 'distance', label: t.recRowKm, autoLabel: t.autoRecKm, icon: 'fa-route text-orange-400', getValue: (r, c) => parseFloat(r.distance) || 0 },
+                { key: 'duration', label: t.recRowDur, autoLabel: t.autoRecDur, icon: 'fa-stopwatch text-sky-400', getValue: (r, c) => c.hours },
+                { key: 'elevation', label: t.recRowElev, autoLabel: t.autoRecElev, icon: 'fa-mountain text-amber-400', getValue: (r, c) => parseInt(r.elevation) || 0 },
+                { key: 'speed', label: t.recRowAvg, autoLabel: t.autoRecAvg, icon: 'fa-gauge-high text-emerald-400', getValue: (r, c) => c.avgSpeed },
+                { key: 'difficulty', label: t.recRowDiff, autoLabel: t.autoRecDiff, icon: 'fa-bolt text-rose-400', getValue: (r, c) => c.difficulty }
             ];
 
             criteriaList.forEach(crit => {
@@ -1434,12 +1459,21 @@
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-800/40 transition-colors';
 
-                if (!bestRide) {
+                if (!bestRide || bestVal <= 0) {
                     tr.innerHTML = `
                         <td class="px-4 py-3 font-bold text-slate-200 whitespace-nowrap"><i class="fa-solid ${crit.icon} mr-2"></i>${crit.label}</td>
                         <td colspan="9" class="px-4 py-3 text-slate-500 text-xs">-</td>
                     `;
                 } else {
+                    // Enregistre automatiquement le record sur la sortie gagnante
+                    if (!autoRecordsByRideId[bestRide.id]) {
+                        autoRecordsByRideId[bestRide.id] = [];
+                    }
+                    autoRecordsByRideId[bestRide.id].push({
+                        key: crit.key,
+                        label: crit.autoLabel
+                    });
+
                     const diffCat = getDifficultyCategory(bestCalc.difficulty);
                     tr.innerHTML = `
                         <td class="px-4 py-3 font-bold text-slate-100 whitespace-nowrap bg-slate-950/30">
@@ -1509,7 +1543,6 @@
             Chart.defaults.color = '#94a3b8';
             Chart.defaults.font.family = 'Inter';
 
-            // Chart Difficulty
             const ctxDiff = document.getElementById('chartDifficulty').getContext('2d');
             chartDifficultyObj = new Chart(ctxDiff, {
                 type: 'doughnut',
@@ -1528,7 +1561,6 @@
                 }
             });
 
-            // Chart Activity
             const ctxAct = document.getElementById('chartActivity').getContext('2d');
             chartActivityObj = new Chart(ctxAct, {
                 type: 'doughnut',
@@ -1547,7 +1579,6 @@
                 }
             });
 
-            // Chart History
             const ctxHist = document.getElementById('chartHistory').getContext('2d');
             chartHistoryObj = new Chart(ctxHist, {
                 type: 'bar',
@@ -1582,7 +1613,6 @@
                 }
             });
 
-            // Chart Records Evolution
             const ctxRec = document.getElementById('chartRecordsEvo').getContext('2d');
             chartRecordsEvoObj = new Chart(ctxRec, {
                 type: 'line',
@@ -1598,7 +1628,6 @@
                         pointBorderColor: '#fff',
                         pointRadius: 5,
                         fill: true,
-                        stepped: false,
                         tension: 0.25
                     }]
                 },
@@ -1610,7 +1639,12 @@
                         y: { grid: { color: 'rgba(255,255,255,0.05)' } }
                     },
                     plugins: {
-                        legend: { display: false }
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: () => ''
+                            }
+                        }
                     }
                 }
             });
@@ -1699,8 +1733,8 @@
 
             saveRidesToStorage();
             populateYearFilter();
-            applyFilters();
             updateRecordsSection();
+            applyFilters();
             closeModal('rideModal');
         }
 
@@ -1735,8 +1769,8 @@
             rides = rides.filter(r => r.id !== id);
             saveRidesToStorage();
             populateYearFilter();
-            applyFilters();
             updateRecordsSection();
+            applyFilters();
         }
 
         // Service Worker
@@ -1754,7 +1788,7 @@
                 return;
             }
 
-            const headers = ["ID", "Date", "Activité", "Lieu", "Distance_km", "Dplus_m", "Duree", "FTP_W", "Records", "Parcours", "Meteo", "IT", "IC", "Itemp", "IP"];
+            const headers = ["ID", "Date", "Activité", "Lieu", "Distance_km", "Dplus_m", "Duree", "FTP_W", "Records_Manuel", "Records_Tous", "Parcours", "Meteo", "IT", "IC", "Itemp", "IP"];
 
             const rows = rides.map(r => [
                 r.id,
@@ -1766,6 +1800,7 @@
                 `"${r.duration}"`,
                 `"${(r.ftp || '').replace(/"/g, '""')}"`,
                 `"${(r.records || '').replace(/"/g, '""')}"`,
+                `"${getEffectiveRecordsText(r).replace(/"/g, '""')}"`,
                 `"${(r.route || '').replace(/"/g, '""')}"`,
                 `"${(r.conditions || '').replace(/"/g, '""')}"`,
                 `"${r.it || 'Sec'}"`,
@@ -1791,7 +1826,11 @@
                 alert(t.alertNoExport);
                 return;
             }
-            const worksheet = XLSX.utils.json_to_sheet(rides);
+            const enrichedRides = rides.map(r => ({
+                ...r,
+                records_tous: getEffectiveRecordsText(r)
+            }));
+            const worksheet = XLSX.utils.json_to_sheet(enrichedRides);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Sorties Velo");
             XLSX.writeFile(workbook, `VeloStats_Export_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -1838,7 +1877,7 @@
                             elevation: parseInt(item.elevation || item.Dplus_m || item.Dplus || 0),
                             duration: item.duration || item.Duree || item.Durée || '01:00:00',
                             ftp: String(item.ftp || item.FTP || item.FTP_W || ''),
-                            records: String(item.records || item.Records || item.Record || ''),
+                            records: String(item.records || item.Records_Manuel || item.Records || item.Record || ''),
                             route: item.route || item.Parcours || '',
                             conditions: item.conditions || item.Meteo || item.Météo || '',
                             it: item.it || item.IT || 'Sec',
@@ -1855,8 +1894,8 @@
 
                     saveRidesToStorage();
                     populateYearFilter();
-                    applyFilters();
                     updateRecordsSection();
+                    applyFilters();
 
                     alert(`${addedCount} ${t.alertImportSuccess}`);
                     event.target.value = '';
