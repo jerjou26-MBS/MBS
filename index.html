@@ -2,10 +2,10 @@
 <html lang="fr" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>My Bike Stats - Suivi & Tableau de Bord Vélo</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS pour import/export Excel XLSX & CSV -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -34,17 +36,47 @@
             }
         }
     </script>
-<!-- SheetJS pour import/export Excel XLSX & CSV -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
+        
+        :root {
+            --sat: env(safe-area-inset-top, 0px);
+            --sab: env(safe-area-inset-bottom, 0px);
+            --sal: env(safe-area-inset-left, 0px);
+            --sar: env(safe-area-inset-right, 0px);
         }
+
+        html, body {
+            height: 100dvh;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            padding-left: var(--sal);
+            padding-right: var(--sar);
+        }
+
+        /* Header respectant la barre d'état smartphone */
+        header {
+            padding-top: max(0.5rem, var(--sat));
+        }
+
+        /* Zone de défilement principale respectant la barre de navigation du bas */
+        #appScrollContainer {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: calc(2rem + var(--sab));
+        }
+
+        /* Modales respectant les zones sûres */
+        .modal-safe {
+            padding-top: max(1rem, var(--sat));
+            padding-bottom: max(1rem, var(--sab));
+        }
+
         /* Custom Scrollbar */
         ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
         }
         ::-webkit-scrollbar-track {
             background: rgba(15, 23, 42, 0.6);
@@ -57,83 +89,225 @@
             background: #475569;
         }
     </style>
-<link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.json">
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+<body class="bg-slate-950 text-slate-100 flex flex-col">
 
     <!-- Header / Navbar -->
-    <header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-30">
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 z-30 shrink-0">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
-                <!-- Logo -->
+                <!-- Logo & Titre -->
                 <div class="flex items-center space-x-3">
-                    <!-- Logo & Titre -->
-<div class="flex items-center space-x-3">
-    <!-- Votre nouveau logo image -->
-    <img src="logo.png" alt="My Bike Stats" class="w-10 h-10 rounded-xl object-cover shadow-lg shadow-orange-500/20">
-    <div>
-        <span class="text-xl font-bold bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">My Bike Stats</span>
-        <span class="hidden sm:inline-block text-xs text-slate-400 ml-2 font-mono">v2.0</span>
-    </div>
-</div>
-
+                    <img src="logo.png" onerror="this.style.display='none'" alt="My Bike Stats" class="w-10 h-10 rounded-xl object-cover shadow-lg shadow-orange-500/20">
+                    <div>
+                        <span class="text-lg sm:text-xl font-bold bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">My Bike Stats</span>
+                        <span class="hidden sm:inline-block text-xs text-slate-400 ml-2 font-mono">v1.1</span>
+                    </div>
                 </div>
 
-                <!-- Navigation Quick Actions -->
-                <div class="flex items-center space-x-3">
-                    <button onclick="openModal('rideModal')" class="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center space-x-2 transition-all shadow-lg shadow-orange-600/30 active:scale-95">
+                <!-- Navigation Quick Actions & Langue -->
+                <div class="flex items-center space-x-2 sm:space-x-3">
+                    <button onclick="openModal('rideModal')" class="bg-orange-600 hover:bg-orange-500 text-white px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold flex items-center space-x-2 transition-all shadow-lg shadow-orange-600/30 active:scale-95">
                         <i class="fa-solid fa-plus"></i>
-                        <span class="hidden sm:inline">Nouvelle sortie</span>
+                        <span class="hidden sm:inline" data-i18n="newRide">Nouvelle sortie</span>
                     </button>
-                    <button onclick="openModal('settingsModal')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2.5 rounded-xl border border-slate-700 transition-all">
+                    <button onclick="openModal('settingsModal')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2.5 rounded-xl border border-slate-700 transition-all" title="Réglages">
                         <i class="fa-solid fa-gear"></i>
                     </button>
+
+                    <!-- Sélecteur de langue FR / EN -->
+                    <div class="flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700 space-x-1">
+                        <button id="langBtnFr" onclick="setLanguage('fr')" title="Français" class="w-7 h-6 rounded-lg overflow-hidden flex items-center justify-center transition-all ring-2 ring-orange-500 opacity-100">
+                            <svg viewBox="0 0 3 2" class="w-full h-full object-cover">
+                                <rect width="1" height="2" x="0" fill="#002395"/>
+                                <rect width="1" height="2" x="1" fill="#ffffff"/>
+                                <rect width="1" height="2" x="2" fill="#ed2939"/>
+                            </svg>
+                        </button>
+                        <button id="langBtnEn" onclick="setLanguage('en')" title="English" class="w-7 h-6 rounded-lg overflow-hidden flex items-center justify-center transition-all opacity-50 hover:opacity-90">
+                            <svg viewBox="0 0 60 30" class="w-full h-full object-cover">
+                                <clipPath id="uk-clip"><path d="M0,0 v30 h60 v-30 z"/></clipPath>
+                                <g clip-path="url(#uk-clip)">
+                                    <path d="M0,0 v30 h60 v-30 z" fill="#012169"/>
+                                    <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/>
+                                    <path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" stroke-width="4"/>
+                                    <path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/>
+                                    <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/>
+                                </g>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </header>
 
-    <!-- Main Container -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <!-- Main Scrollable Container -->
+    <div id="appScrollContainer">
+        <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        <!-- Controls Bar / Filters -->
-        <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div class="flex items-center space-x-2 text-slate-400 font-medium text-sm">
-                    <i class="fa-solid fa-filter text-orange-500"></i>
-                    <span>Filtres d'analyse</span>
+            <!-- Controls Bar / Filters -->
+            <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="flex items-center space-x-2 text-slate-400 font-medium text-sm">
+                        <i class="fa-solid fa-filter text-orange-500"></i>
+                        <span data-i18n="analysisFilters">Filtres d'analyse</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full md:w-auto">
+                        <!-- Année -->
+                        <div>
+                            <select id="filterYear" onchange="applyFilters()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-orange-500">
+                                <option value="ALL">Toutes les années</option>
+                            </select>
+                        </div>
+
+                        <!-- Mois -->
+                        <div>
+                            <select id="filterMonth" onchange="applyFilters()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-orange-500">
+                                <option value="ALL">Tous les mois</option>
+                                <option value="01">Janvier</option>
+                                <option value="02">Février</option>
+                                <option value="03">Mars</option>
+                                <option value="04">Avril</option>
+                                <option value="05">Mai</option>
+                                <option value="06">Juin</option>
+                                <option value="07">Juillet</option>
+                                <option value="08">Août</option>
+                                <option value="09">Septembre</option>
+                                <option value="10">Octobre</option>
+                                <option value="11">Novembre</option>
+                                <option value="12">Décembre</option>
+                            </select>
+                        </div>
+
+                        <!-- Activité -->
+                        <div>
+                            <select id="filterActivity" onchange="applyFilters()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-orange-500">
+                                <option value="ALL">Toutes les activités</option>
+                                <option value="VTT">VTT</option>
+                                <option value="Gravel">Gravel</option>
+                                <option value="Route">Route</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- KPI Summary Cards -->
+            <section class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                <!-- Total Sorties -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden group">
+                    <div class="absolute -right-2 -bottom-2 opacity-10 text-orange-500 text-6xl group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-hashtag"></i>
+                    </div>
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider" data-i18n="kpiRides">Sorties</span>
+                    <div class="mt-2">
+                        <span id="kpiCount" class="text-2xl sm:text-3xl font-bold text-white">0</span>
+                        <span class="text-xs text-slate-500 ml-1" data-i18n="sessions">sessions</span>
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full md:w-auto">
-                    <!-- Année -->
-                    <div>
-                        <select id="filterYear" onchange="applyFilters()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-orange-500">
+                <!-- Total Km -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden group">
+                    <div class="absolute -right-2 -bottom-2 opacity-10 text-orange-500 text-6xl group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-route"></i>
+                    </div>
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider" data-i18n="kpiDist">Distance Total</span>
+                    <div class="mt-2">
+                        <span id="kpiDistance" class="text-2xl sm:text-3xl font-bold text-white">0</span>
+                        <span class="text-xs text-slate-500 ml-1">km</span>
+                    </div>
+                </div>
+
+                <!-- Total D+ -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden group">
+                    <div class="absolute -right-2 -bottom-2 opacity-10 text-orange-500 text-6xl group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-mountain"></i>
+                    </div>
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider" data-i18n="kpiElev">Dénivelé D+</span>
+                    <div class="mt-2">
+                        <span id="kpiElevation" class="text-2xl sm:text-3xl font-bold text-white">0</span>
+                        <span class="text-xs text-slate-500 ml-1">m</span>
+                    </div>
+                </div>
+
+                <!-- Vitesse Moyenne -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden group">
+                    <div class="absolute -right-2 -bottom-2 opacity-10 text-orange-500 text-6xl group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-gauge-high"></i>
+                    </div>
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider" data-i18n="kpiSpeed">Vitesse Moy.</span>
+                    <div class="mt-2">
+                        <span id="kpiSpeed" class="text-2xl sm:text-3xl font-bold text-white">0.0</span>
+                        <span class="text-xs text-slate-500 ml-1">km/h</span>
+                    </div>
+                </div>
+
+                <!-- Score Difficulté Moy. -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden group col-span-2 lg:col-span-1">
+                    <div class="absolute -right-2 -bottom-2 opacity-10 text-orange-500 text-6xl group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider" data-i18n="kpiDiff">Diff. Moyenne</span>
+                    <div class="mt-2">
+                        <span id="kpiDiff" class="text-2xl sm:text-3xl font-bold text-orange-400">0.0</span>
+                        <span class="text-xs text-slate-500 ml-1">pts</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Charts Section -->
+            <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Chart 1: Répartition par Difficulté -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+                    <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-chart-pie text-orange-500"></i>
+                        <span data-i18n="chartDiffTitle">Répartition par Difficulté</span>
+                    </h3>
+                    <div class="relative h-64 flex items-center justify-center">
+                        <canvas id="chartDifficulty"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 2: Volume par Activité -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+                    <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-chart-doughnut text-amber-500"></i>
+                        <span data-i18n="chartActTitle">Répartition par Activité</span>
+                    </h3>
+                    <div class="relative h-64 flex items-center justify-center">
+                        <canvas id="chartActivity"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 3: Distance & D+ par sortie -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+                    <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-chart-column text-emerald-500"></i>
+                        <span data-i18n="chartProgTitle">Progression (Distance / D+)</span>
+                    </h3>
+                    <div class="relative h-64">
+                        <canvas id="chartHistory"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Synthèse des Records Section -->
+            <section class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+                <div class="p-5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h3 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-trophy text-amber-400"></i>
+                        <span data-i18n="recordsSummaryTitle">Synthèse des Records</span>
+                    </h3>
+
+                    <!-- Filtres dédiés aux Records -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select id="recordFilterYear" onchange="updateRecordsSection()" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500">
                             <option value="ALL">Toutes les années</option>
                         </select>
-                    </div>
-
-                    <!-- Mois -->
-                    <div>
-                        <select id="filterMonth" onchange="applyFilters()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-orange-500">
-                            <option value="ALL">Tous les mois</option>
-                            <option value="01">Janvier</option>
-                            <option value="02">Février</option>
-                            <option value="03">Mars</option>
-                            <option value="04">Avril</option>
-                            <option value="05">Mai</option>
-                            <option value="06">Juin</option>
-                            <option value="07">Juillet</option>
-                            <option value="08">Août</option>
-                            <option value="09">Septembre</option>
-                            <option value="10">Octobre</option>
-                            <option value="11">Novembre</option>
-                            <option value="12">Décembre</option>
-                        </select>
-                    </div>
-
-                    <!-- Activité -->
-                    <div>
-                        <select id="filterActivity" onchange="applyFilters()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-orange-500">
+                        <select id="recordFilterActivity" onchange="updateRecordsSection()" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500">
                             <option value="ALL">Toutes les activités</option>
                             <option value="VTT">VTT</option>
                             <option value="Gravel">Gravel</option>
@@ -141,186 +315,187 @@
                         </select>
                     </div>
                 </div>
-            </div>
-        </section>
 
-        <!-- KPI Summary Cards -->
-        <section class="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <!-- Total Sorties -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden group">
-                <div class="absolute -right-2 -bottom-2 opacity-10 text-orange-500 text-6xl group-hover:scale-110 transition-transform">
-                    <i class="fa-solid fa-hashtag"></i>
+                <!-- Tableau des 5 Records -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-300">
+                        <thead class="bg-slate-950/60 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-800">
+                            <tr>
+                                <th class="px-4 py-3" data-i18n="colCriteria">Critère</th>
+                                <th class="px-4 py-3" data-i18n="colDate">Date</th>
+                                <th class="px-4 py-3" data-i18n="colLocation">Lieu</th>
+                                <th class="px-4 py-3" data-i18n="colActivity">Activité</th>
+                                <th class="px-4 py-3 text-center" data-i18n="colDiffShort">Difficulté</th>
+                                <th class="px-4 py-3 text-right">D+ m</th>
+                                <th class="px-4 py-3 text-right" data-i18n="colDuration">Durée</th>
+                                <th class="px-4 py-3 text-right" data-i18n="colDistKm">Distance km</th>
+                                <th class="px-4 py-3 text-right" data-i18n="colAvgShort">Moy</th>
+                                <th class="px-4 py-3" data-i18n="colRoute">Parcours</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recordsTableBody" class="divide-y divide-slate-800/60">
+                            <!-- Dynamique -->
+                        </tbody>
+                    </table>
                 </div>
-                <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Sorties</span>
-                <div class="mt-2">
-                    <span id="kpiCount" class="text-2xl sm:text-3xl font-bold text-white">0</span>
-                    <span class="text-xs text-slate-500 ml-1">sessions</span>
-                </div>
-            </div>
 
-            <!-- Total Km -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden group">
-                <div class="absolute -right-2 -bottom-2 opacity-10 text-orange-500 text-6xl group-hover:scale-110 transition-transform">
-                    <i class="fa-solid fa-route"></i>
+                <!-- Évolution des Records (Graphique) -->
+                <div class="p-5 border-t border-slate-800 bg-slate-950/30">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                        <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-arrow-trend-up text-amber-400"></i>
+                            <span data-i18n="recordsEvoTitle">Évolution chronologique des records</span>
+                        </h4>
+                        <div class="flex items-center gap-2">
+                            <label for="recordMetricSelect" class="text-xs text-slate-400" data-i18n="metricLabel">Critère :</label>
+                            <select id="recordMetricSelect" onchange="updateRecordsSection()" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-orange-500">
+                                <option value="distance" data-i18n="recDistOption">Distance la plus longue (km)</option>
+                                <option value="duration" data-i18n="recDurOption">Durée la plus longue (h)</option>
+                                <option value="elevation" data-i18n="recElevOption">Dénivelé D+ max (m)</option>
+                                <option value="speed" data-i18n="recSpeedOption">Vitesse moyenne max (km/h)</option>
+                                <option value="difficulty" data-i18n="recDiffOption">Difficulté max (pts)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="relative h-56">
+                        <canvas id="chartRecordsEvo"></canvas>
+                    </div>
                 </div>
-                <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Distance Total</span>
-                <div class="mt-2">
-                    <span id="kpiDistance" class="text-2xl sm:text-3xl font-bold text-white">0</span>
-                    <span class="text-xs text-slate-500 ml-1">km</span>
-                </div>
-            </div>
+            </section>
 
-            <!-- Total D+ -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden group">
-                <div class="absolute -right-2 -bottom-2 opacity-10 text-orange-500 text-6xl group-hover:scale-110 transition-transform">
-                    <i class="fa-solid fa-mountain"></i>
-                </div>
-                <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Dénivelé D+</span>
-                <div class="mt-2">
-                    <span id="kpiElevation" class="text-2xl sm:text-3xl font-bold text-white">0</span>
-                    <span class="text-xs text-slate-500 ml-1">m</span>
-                </div>
-            </div>
+            <!-- Table Section : Historique des Sorties -->
+            <section class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+                <div class="p-4 border-b border-slate-800/60 flex flex-wrap items-center justify-between gap-3 bg-slate-950/30">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- Bouton Importer -->
+                        <label class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 cursor-pointer border border-slate-700 transition-all">
+                            <i class="fa-solid fa-file-import text-orange-400"></i>
+                            <span data-i18n="btnImport">Importer</span>
+                            <input type="file" id="importFile" accept=".csv, .xlsx, .json" onchange="importData(event)" class="hidden">
+                        </label>
 
-            <!-- Vitesse Moyenne -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden group">
-                <div class="absolute -right-2 -bottom-2 opacity-10 text-orange-500 text-6xl group-hover:scale-110 transition-transform">
-                    <i class="fa-solid fa-gauge-high"></i>
+                        <!-- Bouton Exporter CSV -->
+                        <button onclick="exportCSV()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-slate-700 transition-all">
+                            <i class="fa-solid fa-file-csv text-emerald-400"></i>
+                            <span data-i18n="btnExportCsv">Export CSV</span>
+                        </button>
+
+                        <!-- Bouton Exporter XLSX -->
+                        <button onclick="exportXLSX()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-slate-700 transition-all">
+                            <i class="fa-solid fa-file-excel text-emerald-500"></i>
+                            <span data-i18n="btnExportExcel">Export Excel</span>
+                        </button>
+                    </div>
+                    <span id="tableCount" class="text-xs bg-slate-800 text-slate-400 px-3 py-1 rounded-full border border-slate-700">0 sortie(s)</span>
                 </div>
-                <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Vitesse Moy.</span>
-                <div class="mt-2">
-                    <span id="kpiSpeed" class="text-2xl sm:text-3xl font-bold text-white">0.0</span>
-                    <span class="text-xs text-slate-500 ml-1">km/h</span>
+
+                <div class="px-5 py-3 border-b border-slate-800 flex items-center justify-between">
+                    <h3 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-list-ul text-orange-500"></i>
+                        <span data-i18n="historyTitle">Historique des Sorties</span>
+                    </h3>
                 </div>
-            </div>
 
-            <!-- Score Difficulté Moy. -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden group col-span-2 lg:col-span-1">
-                <div class="absolute -right-2 -bottom-2 opacity-10 text-orange-500 text-6xl group-hover:scale-110 transition-transform">
-                    <i class="fa-solid fa-bolt"></i>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-300">
+                        <thead class="bg-slate-950/60 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-800 select-none">
+                            <tr>
+                                <th class="px-4 py-3 whitespace-nowrap">
+                                    <button onclick="toggleSort('date')" class="flex items-center gap-1.5 hover:text-white transition-colors uppercase">
+                                        <span data-i18n="colDate">Date</span>
+                                        <span id="sort-icon-date" class="text-orange-400"><i class="fa-solid fa-sort-down"></i></span>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 whitespace-nowrap">
+                                    <button onclick="toggleSort('activity')" class="flex items-center gap-1.5 hover:text-white transition-colors uppercase">
+                                        <span data-i18n="colActivity">Activité</span>
+                                        <span id="sort-icon-activity" class="text-slate-600"><i class="fa-solid fa-sort"></i></span>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 whitespace-nowrap">
+                                    <button onclick="toggleSort('location')" class="flex items-center gap-1.5 hover:text-white transition-colors uppercase">
+                                        <span data-i18n="colLocRoute">Lieu / Parcours</span>
+                                        <span id="sort-icon-location" class="text-slate-600"><i class="fa-solid fa-sort"></i></span>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-right whitespace-nowrap">
+                                    <button onclick="toggleSort('distance')" class="inline-flex items-center justify-end gap-1.5 hover:text-white transition-colors uppercase ml-auto">
+                                        <span data-i18n="colDistance">Distance</span>
+                                        <span id="sort-icon-distance" class="text-slate-600"><i class="fa-solid fa-sort"></i></span>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-right whitespace-nowrap">
+                                    <button onclick="toggleSort('elevation')" class="inline-flex items-center justify-end gap-1.5 hover:text-white transition-colors uppercase ml-auto">
+                                        <span>D+</span>
+                                        <span id="sort-icon-elevation" class="text-slate-600"><i class="fa-solid fa-sort"></i></span>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-right whitespace-nowrap">
+                                    <button onclick="toggleSort('duration')" class="inline-flex items-center justify-end gap-1.5 hover:text-white transition-colors uppercase ml-auto">
+                                        <span data-i18n="colDuration">Durée</span>
+                                        <span id="sort-icon-duration" class="text-slate-600"><i class="fa-solid fa-sort"></i></span>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-right whitespace-nowrap">
+                                    <button onclick="toggleSort('avgSpeed')" class="inline-flex items-center justify-end gap-1.5 hover:text-white transition-colors uppercase ml-auto">
+                                        <span data-i18n="colAvg">Moyenne</span>
+                                        <span id="sort-icon-avgSpeed" class="text-slate-600"><i class="fa-solid fa-sort"></i></span>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-right whitespace-nowrap">
+                                    <button onclick="toggleSort('ftp')" class="inline-flex items-center justify-end gap-1.5 hover:text-white transition-colors uppercase ml-auto">
+                                        <span>FTP (W)</span>
+                                        <span id="sort-icon-ftp" class="text-slate-600"><i class="fa-solid fa-sort"></i></span>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-center whitespace-nowrap">
+                                    <button onclick="toggleSort('difficulty')" class="inline-flex items-center justify-center gap-1.5 hover:text-white transition-colors uppercase">
+                                        <span data-i18n="colScoreDiff">Score Diff.</span>
+                                        <span id="sort-icon-difficulty" class="text-slate-600"><i class="fa-solid fa-sort"></i></span>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-center whitespace-nowrap">
+                                    <button onclick="toggleSort('conditions')" class="inline-flex items-center justify-center gap-1.5 hover:text-white transition-colors uppercase">
+                                        <span data-i18n="colWeather">Météo / Terrain</span>
+                                        <span id="sort-icon-conditions" class="text-slate-600"><i class="fa-solid fa-sort"></i></span>
+                                    </button>
+                                </th>
+                                <th class="px-4 py-3 text-center whitespace-nowrap" data-i18n="colActions">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ridesTableBody" class="divide-y divide-slate-800/60">
+                            <!-- Rows dynamically generated -->
+                        </tbody>
+                    </table>
                 </div>
-                <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Diff. Moyenne</span>
-                <div class="mt-2">
-                    <span id="kpiDiff" class="text-2xl sm:text-3xl font-bold text-orange-400">0.0</span>
-                    <span class="text-xs text-slate-500 ml-1">pts</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Charts Section -->
-        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Chart 1: Répartition par Difficulté -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-                <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
-                    <i class="fa-solid fa-chart-pie text-orange-500"></i>
-                    Répartition par Difficulté
-                </h3>
-                <div class="relative h-64 flex items-center justify-center">
-                    <canvas id="chartDifficulty"></canvas>
-                </div>
-            </div>
-
-            <!-- Chart 2: Volume par Activité -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-                <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
-                    <i class="fa-solid fa-chart-doughnut text-amber-500"></i>
-                    Répartition par Activité
-                </h3>
-                <div class="relative h-64 flex items-center justify-center">
-                    <canvas id="chartActivity"></canvas>
-                </div>
-            </div>
-
-            <!-- Chart 3: Distance & D+ par sortie -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-                <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
-                    <i class="fa-solid fa-chart-column text-emerald-500"></i>
-                    Progression (Distance / D+)
-                </h3>
-                <div class="relative h-64">
-                    <canvas id="chartHistory"></canvas>
-                </div>
-            </div>
-        </section>
-
-        <!-- Table Section -->
-        <section class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
-<div class="flex items-center space-x-2">
-    <!-- Bouton Importer -->
-    <label class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 cursor-pointer border border-slate-700 transition-all">
-        <i class="fa-solid fa-file-import text-orange-400"></i>
-        <span>Importer</span>
-        <input type="file" id="importFile" accept=".csv, .xlsx, .json" onchange="importData(event)" class="hidden">
-    </label>
-
-    <!-- Bouton Exporter CSV -->
-    <button onclick="exportCSV()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-slate-700 transition-all">
-        <i class="fa-solid fa-file-csv text-emerald-400"></i>
-        <span>Export CSV</span>
-    </button>
-
-    <!-- Bouton Exporter XLSX -->
-    <button onclick="exportXLSX()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-slate-700 transition-all">
-        <i class="fa-solid fa-file-excel text-emerald-500"></i>
-        <span>Export Excel</span>
-    </button>
-</div>
-            <div class="p-5 border-b border-slate-800 flex items-center justify-between">
-                <h3 class="text-base font-semibold text-slate-200 flex items-center gap-2">
-                    <i class="fa-solid fa-list-ul text-orange-500"></i>
-                    Historique des Sorties
-                </h3>
-                <span id="tableCount" class="text-xs bg-slate-800 text-slate-400 px-3 py-1 rounded-full border border-slate-700">0 sortie(s)</span>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm text-slate-300">
-                    <thead class="bg-slate-950/60 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-800">
-                        <tr>
-                            <th class="px-4 py-3">Date</th>
-                            <th class="px-4 py-3">Activité</th>
-                            <th class="px-4 py-3">Lieu / Parcours</th>
-                            <th class="px-4 py-3 text-right">Distance</th>
-                            <th class="px-4 py-3 text-right">D+</th>
-                            <th class="px-4 py-3 text-right">Durée</th>
-                            <th class="px-4 py-3 text-right">Moyenne</th>
-                            <th class="px-4 py-3 text-center">Score Diff.</th>
-                            <th class="px-4 py-3 text-center">Météo / Terrain</th>
-                            <th class="px-4 py-3 text-center">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ridesTableBody" class="divide-y divide-slate-800/60">
-                        <!-- Rows dynamically generated -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
-    </main>
+            </section>
+        </main>
+    </div>
 
     <!-- Modal : Nouvelle / Édition de Sortie -->
-    <div id="rideModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4 overflow-y-auto">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative my-8">
+    <div id="rideModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden px-4 overflow-y-auto modal-safe">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative my-auto max-h-full overflow-y-auto">
             <button onclick="closeModal('rideModal')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-200">
                 <i class="fa-solid fa-xmark text-xl"></i>
             </button>
 
             <h2 id="modalTitle" class="text-xl font-bold text-white mb-6 flex items-center gap-2">
                 <i class="fa-solid fa-pen-to-square text-orange-500"></i>
-                Enregistrer une sortie vélo
+                <span data-i18n="modalNewTitle">Enregistrer une sortie vélo</span>
             </h2>
 
             <form id="rideForm" onsubmit="saveRide(event)" class="space-y-4">
                 <input type="hidden" id="rideId">
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <!-- Date -->
+                    <!-- Date (Champ libre) -->
                     <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">Date *</label>
-                        <input type="date" id="inputDate" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+                        <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblDate">Date *</label>
+                        <input type="text" id="inputDate" required placeholder="JJ/MM/AAAA" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
                     </div>
                     <!-- Activité -->
                     <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">Activité *</label>
+                        <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblActivity">Activité *</label>
                         <select id="inputActivity" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
                             <option value="VTT">VTT</option>
                             <option value="Gravel">Gravel</option>
@@ -329,7 +504,7 @@
                     </div>
                     <!-- Lieu -->
                     <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">Lieu</label>
+                        <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblLocation">Lieu</label>
                         <input type="text" id="inputLocation" placeholder="ex: Puy" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
                     </div>
                 </div>
@@ -337,59 +512,71 @@
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <!-- Distance -->
                     <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">Distance (km) *</label>
+                        <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblDistance">Distance (km) *</label>
                         <input type="number" step="0.01" id="inputDistance" required placeholder="ex: 24.64" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
                     </div>
                     <!-- D+ -->
                     <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">D+ (mètres) *</label>
+                        <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblElevation">D+ (mètres) *</label>
                         <input type="number" id="inputElevation" required placeholder="ex: 565" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
                     </div>
                     <!-- Durée -->
                     <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">Durée (HH:MM:SS) *</label>
+                        <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblDuration">Durée (HH:MM:SS) *</label>
                         <input type="text" id="inputDuration" required placeholder="01:45:07" pattern="^[0-9]{1,2}:[0-5][0-9](:[0-5][0-9])?$" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+                    </div>
+                </div>
+
+                <!-- FTP (W) & Records (Nouveaux champs libres) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">FTP (W)</label>
+                        <input type="text" id="inputFtp" placeholder="ex: 245" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblRecords">Records</label>
+                        <input type="text" id="inputRecords" placeholder="ex: Meilleur temps montée, Record distance..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
                     </div>
                 </div>
 
                 <!-- Parcours & Conditions -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">Parcours / Description</label>
+                        <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblRoute">Parcours / Description</label>
                         <input type="text" id="inputRoute" placeholder="ex: Théron - Cassagnes" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">Conditions météo</label>
+                        <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblWeather">Conditions météo</label>
                         <input type="text" id="inputConditions" placeholder="ex: PM - 4° - Soleil" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
                     </div>
                 </div>
 
                 <!-- Facteurs d'effort -->
                 <div class="pt-2 border-t border-slate-800">
-                    <h4 class="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-3">Facteurs environnementaux</h4>
+                    <h4 class="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-3" data-i18n="envFactors">Facteurs environnementaux</h4>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <!-- IT -->
                         <div>
-                            <label class="block text-xs font-medium text-slate-400 mb-1">IT (Terrain)</label>
+                            <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblIT">IT (Terrain)</label>
                             <select id="inputIT" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-xs text-slate-100 focus:outline-none focus:border-orange-500">
                                 <option value="Sec">Sec (1.0)</option>
                                 <option value="Gras">Gras (1.2)</option>
                                 <option value="Très Gras">Très Gras (1.4)</option>
                             </select>
                         </div>
-                        <!-- IC -->
+                        <!-- IC (Vent mis à jour avec les plages) -->
                         <div>
-                            <label class="block text-xs font-medium text-slate-400 mb-1">IC (Vent)</label>
+                            <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblIC">IC (Vent)</label>
                             <select id="inputIC" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-xs text-slate-100 focus:outline-none focus:border-orange-500">
-                                <option value="Pas de vent">Pas de vent (1.0)</option>
-                                <option value="Vent modéré">Vent modéré (1.2)</option>
-                                <option value="Vent Moyen">Vent Moyen (1.3)</option>
-                                <option value="Vent Fort">Vent Fort (1.5)</option>
+                                <option value="Vent faible < 15">Vent faible &lt; 15 (1.0)</option>
+                                <option value="Vent modéré 15-30">Vent modéré 15-30 (1.2)</option>
+                                <option value="Vent fort 30-50">Vent fort 30-50 (1.3)</option>
+                                <option value="Vent très fort >50">Vent très fort &gt;50 (1.5)</option>
                             </select>
                         </div>
                         <!-- Itemp -->
                         <div>
-                            <label class="block text-xs font-medium text-slate-400 mb-1">Itemp (Temp.)</label>
+                            <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblItemp">Itemp (Temp.)</label>
                             <select id="inputItemp" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-xs text-slate-100 focus:outline-none focus:border-orange-500">
                                 <option value="Moyen 12-19">Moyen 12-19° (1.0)</option>
                                 <option value="Froid 6-11">Froid 6-11° (1.25)</option>
@@ -400,7 +587,7 @@
                         </div>
                         <!-- IP -->
                         <div>
-                            <label class="block text-xs font-medium text-slate-400 mb-1">IP (Pluie)</label>
+                            <label class="block text-xs font-medium text-slate-400 mb-1" data-i18n="lblIP">IP (Pluie)</label>
                             <select id="inputIP" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-xs text-slate-100 focus:outline-none focus:border-orange-500">
                                 <option value="Pas de pluie">Pas de pluie (1.0)</option>
                                 <option value="Pluie">Pluie (1.1)</option>
@@ -411,15 +598,15 @@
                 </div>
 
                 <div class="flex justify-end space-x-3 pt-4 border-t border-slate-800">
-                    <button type="button" onclick="closeModal('rideModal')" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-800">Annuler</button>
-                    <button type="submit" class="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2 rounded-xl text-sm font-semibold shadow-lg shadow-orange-600/30">Enregistrer</button>
+                    <button type="button" onclick="closeModal('rideModal')" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-800" data-i18n="btnCancel">Annuler</button>
+                    <button type="submit" class="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2 rounded-xl text-sm font-semibold shadow-lg shadow-orange-600/30" data-i18n="btnSave">Enregistrer</button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- Modal : Réglages -->
-    <div id="settingsModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div id="settingsModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden px-4 modal-safe">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
             <button onclick="closeModal('settingsModal')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-200">
                 <i class="fa-solid fa-xmark text-xl"></i>
@@ -427,9 +614,9 @@
 
             <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <i class="fa-solid fa-sliders text-orange-500"></i>
-                Réglages des Coeffs & Références
+                <span data-i18n="settingsTitle">Réglages des Coeffs & Références</span>
             </h2>
-            <p class="text-xs text-slate-400 mb-6">Ajustez les vitesses de référence (Moy Ref) et les coefficients de pondération pour le calcul de difficulté.</p>
+            <p class="text-xs text-slate-400 mb-6" data-i18n="settingsDesc">Ajustez les vitesses de référence (Moy Ref) et les coefficients de pondération pour le calcul de difficulté.</p>
 
             <form onsubmit="saveSettings(event)" class="space-y-4">
                 <div class="space-y-3">
@@ -471,9 +658,9 @@
                 </div>
 
                 <div class="flex justify-end space-x-3 pt-4 border-t border-slate-800">
-                    <button type="button" onclick="resetDefaultSettings()" class="mr-auto text-xs text-amber-500 hover:underline">Réinitialiser par défaut</button>
-                    <button type="button" onclick="closeModal('settingsModal')" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-800">Annuler</button>
-                    <button type="submit" class="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2 rounded-xl text-sm font-semibold shadow-lg shadow-orange-600/30">Sauvegarder</button>
+                    <button type="button" onclick="resetDefaultSettings()" class="mr-auto text-xs text-amber-500 hover:underline" data-i18n="btnResetDefault">Réinitialiser par défaut</button>
+                    <button type="button" onclick="closeModal('settingsModal')" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-800" data-i18n="btnCancel">Annuler</button>
+                    <button type="submit" class="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2 rounded-xl text-sm font-semibold shadow-lg shadow-orange-600/30" data-i18n="btnSaveSettings">Sauvegarder</button>
                 </div>
             </form>
         </div>
@@ -484,6 +671,183 @@
         // Storage Keys
         const STORAGE_RIDES = 'velostats_rides';
         const STORAGE_SETTINGS = 'velostats_settings';
+        const STORAGE_LANG = 'velostats_lang';
+
+        let currentLang = localStorage.getItem(STORAGE_LANG) || 'fr';
+
+        // Dictionnaire de traductions FR / EN
+        const i18n = {
+            fr: {
+                newRide: "Nouvelle sortie",
+                analysisFilters: "Filtres d'analyse",
+                allYears: "Toutes les années",
+                allMonths: "Tous les mois",
+                allActivities: "Toutes les activités",
+                months: ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"],
+                kpiRides: "Sorties",
+                sessions: "sessions",
+                kpiDist: "Distance Total",
+                kpiElev: "Dénivelé D+",
+                kpiSpeed: "Vitesse Moy.",
+                kpiDiff: "Diff. Moyenne",
+                chartDiffTitle: "Répartition par Difficulté",
+                chartActTitle: "Répartition par Activité",
+                chartProgTitle: "Progression (Distance / D+)",
+                recordsSummaryTitle: "Synthèse des Records",
+                colCriteria: "Critère",
+                colDate: "Date",
+                colLocation: "Lieu",
+                colActivity: "Activité",
+                colDiffShort: "Difficulté",
+                colDuration: "Durée",
+                colDistKm: "Distance km",
+                colAvgShort: "Moy",
+                colRoute: "Parcours",
+                recordsEvoTitle: "Évolution chronologique des records",
+                metricLabel: "Critère :",
+                recDistOption: "Distance la plus longue (km)",
+                recDurOption: "Durée la plus longue (h)",
+                recElevOption: "Dénivelé D+ max (m)",
+                recSpeedOption: "Vitesse moyenne max (km/h)",
+                recDiffOption: "Difficulté max (pts)",
+                recRowKm: "Km",
+                recRowDur: "Durée",
+                recRowElev: "D+",
+                recRowAvg: "Moy",
+                recRowDiff: "Diff",
+                btnImport: "Importer",
+                btnExportCsv: "Export CSV",
+                btnExportExcel: "Export Excel",
+                historyTitle: "Historique des Sorties",
+                colLocRoute: "Lieu / Parcours",
+                colDistance: "Distance",
+                colAvg: "Moyenne",
+                colScoreDiff: "Score Diff.",
+                colWeather: "Météo / Terrain",
+                colActions: "Actions",
+                ridesCountSuffix: "sortie(s)",
+                noRidesFound: "Aucune sortie trouvée pour ces filtres.",
+                modalNewTitle: "Enregistrer une sortie vélo",
+                modalEditTitle: "Modifier la sortie",
+                lblDate: "Date *",
+                lblActivity: "Activité *",
+                lblLocation: "Lieu",
+                lblDistance: "Distance (km) *",
+                lblElevation: "D+ (mètres) *",
+                lblDuration: "Durée (HH:MM:SS) *",
+                lblRecords: "Records",
+                lblRoute: "Parcours / Description",
+                lblWeather: "Conditions météo",
+                envFactors: "Facteurs environnementaux",
+                lblIT: "IT (Terrain)",
+                lblIC: "IC (Vent)",
+                lblItemp: "Itemp (Temp.)",
+                lblIP: "IP (Pluie)",
+                btnCancel: "Annuler",
+                btnSave: "Enregistrer",
+                settingsTitle: "Réglages des Coeffs & Références",
+                settingsDesc: "Ajustez les vitesses de référence (Moy Ref) et les coefficients de pondération pour le calcul de difficulté.",
+                btnResetDefault: "Réinitialiser par défaut",
+                btnSaveSettings: "Sauvegarder",
+                diffEasy: "Facile",
+                diffMod: "Modéré",
+                diffHard: "Difficile",
+                diffVeryHard: "Très Difficile",
+                chartDiffLabels: ['Facile (<5)', 'Modéré (5-10)', 'Difficile (10-15)', 'Très Difficile (>15)'],
+                chartDistLabel: "Distance (km)",
+                chartElevLabel: "D+ (m)",
+                chartRecEvoLabel: "Record cumulé",
+                alertNoExport: "Aucune sortie à exporter !",
+                alertImportEmpty: "Fichier d'import vide ou format invalide.",
+                alertImportSuccess: "nouvelle(s) sortie(s) importée(s) avec succès !",
+                alertImportError: "Erreur lors de la lecture du fichier d'importation."
+            },
+            en: {
+                newRide: "New Ride",
+                analysisFilters: "Analysis Filters",
+                allYears: "All Years",
+                allMonths: "All Months",
+                allActivities: "All Activities",
+                months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+                kpiRides: "Rides",
+                sessions: "sessions",
+                kpiDist: "Total Distance",
+                kpiElev: "Elevation Gain",
+                kpiSpeed: "Avg Speed",
+                kpiDiff: "Avg Difficulty",
+                chartDiffTitle: "Difficulty Breakdown",
+                chartActTitle: "Activity Breakdown",
+                chartProgTitle: "Progression (Distance / Elev.)",
+                recordsSummaryTitle: "Records Summary",
+                colCriteria: "Criteria",
+                colDate: "Date",
+                colLocation: "Location",
+                colActivity: "Activity",
+                colDiffShort: "Difficulty",
+                colDuration: "Duration",
+                colDistKm: "Distance km",
+                colAvgShort: "Avg",
+                colRoute: "Route",
+                recordsEvoTitle: "Chronological Records Progression",
+                metricLabel: "Metric:",
+                recDistOption: "Longest Distance (km)",
+                recDurOption: "Longest Duration (h)",
+                recElevOption: "Max Elevation Gain D+ (m)",
+                recSpeedOption: "Max Avg Speed (km/h)",
+                recDiffOption: "Max Difficulty (pts)",
+                recRowKm: "Km",
+                recRowDur: "Duration",
+                recRowElev: "D+",
+                recRowAvg: "Avg",
+                recRowDiff: "Diff",
+                btnImport: "Import",
+                btnExportCsv: "Export CSV",
+                btnExportExcel: "Export Excel",
+                historyTitle: "Ride History",
+                colLocRoute: "Location / Route",
+                colDistance: "Distance",
+                colAvg: "Avg Speed",
+                colScoreDiff: "Diff. Score",
+                colWeather: "Weather / Terrain",
+                colActions: "Actions",
+                ridesCountSuffix: "ride(s)",
+                noRidesFound: "No rides found for these filters.",
+                modalNewTitle: "Log a Bike Ride",
+                modalEditTitle: "Edit Ride",
+                lblDate: "Date *",
+                lblActivity: "Activity *",
+                lblLocation: "Location",
+                lblDistance: "Distance (km) *",
+                lblElevation: "Elevation D+ (m) *",
+                lblDuration: "Duration (HH:MM:SS) *",
+                lblRecords: "Records",
+                lblRoute: "Route / Description",
+                lblWeather: "Weather Conditions",
+                envFactors: "Environmental Factors",
+                lblIT: "IT (Terrain)",
+                lblIC: "IC (Wind)",
+                lblItemp: "Itemp (Temp.)",
+                lblIP: "IP (Rain)",
+                btnCancel: "Cancel",
+                btnSave: "Save",
+                settingsTitle: "Coeffs & Reference Settings",
+                settingsDesc: "Adjust reference speeds (Avg Ref) and weighting coefficients for difficulty calculation.",
+                btnResetDefault: "Reset Defaults",
+                btnSaveSettings: "Save",
+                diffEasy: "Easy",
+                diffMod: "Moderate",
+                diffHard: "Hard",
+                diffVeryHard: "Very Hard",
+                chartDiffLabels: ['Easy (<5)', 'Moderate (5-10)', 'Hard (10-15)', 'Very Hard (>15)'],
+                chartDistLabel: "Distance (km)",
+                chartElevLabel: "D+ (m)",
+                chartRecEvoLabel: "Cumulative Record",
+                alertNoExport: "No rides to export!",
+                alertImportEmpty: "Import file is empty or invalid format.",
+                alertImportSuccess: "new ride(s) imported successfully!",
+                alertImportError: "Error reading the import file."
+            }
+        };
 
         // Initial Default Settings
         const defaultSettings = {
@@ -502,10 +866,12 @@
                 distance: 24.64,
                 elevation: 565,
                 duration: '01:45:07',
+                ftp: '235',
+                records: 'Record montée Cassagnes',
                 conditions: 'PM - 4° - Soleil',
                 route: 'Théron - Cassagnes - Martignac',
                 it: 'Sec',
-                ic: 'Pas de vent',
+                ic: 'Vent faible < 15',
                 itemp: 'Très Froid <5',
                 ip: 'Pas de pluie'
             },
@@ -517,10 +883,12 @@
                 distance: 45.20,
                 elevation: 720,
                 duration: '02:15:30',
-                conditions: 'Matrice - 10° - Nuageux',
+                ftp: '240',
+                records: '',
+                conditions: 'Matin - 10° - Nuageux',
                 route: 'Boucle des Causses',
                 it: 'Gras',
-                ic: 'Vent modéré',
+                ic: 'Vent modéré 15-30',
                 itemp: 'Froid 6-11',
                 ip: 'Pas de pluie'
             },
@@ -532,10 +900,12 @@
                 distance: 68.50,
                 elevation: 910,
                 duration: '02:30:00',
+                ftp: '250',
+                records: 'Record distance 2026',
                 conditions: 'Soleil 15°',
                 route: 'Circuit des Crêtes',
                 it: 'Sec',
-                ic: 'Vent Moyen',
+                ic: 'Vent fort 30-50',
                 itemp: 'Moyen 12-19',
                 ip: 'Pas de pluie'
             }
@@ -546,17 +916,90 @@
         let chartDifficultyObj = null;
         let chartActivityObj = null;
         let chartHistoryObj = null;
+        let chartRecordsEvoObj = null;
 
-        // Coefficient Data Maps
+        // État du tri de l'historique
+        let sortState = { column: 'date', direction: 'desc' };
+
+        // Coefficient Data Maps (incluant rétrocompatibilité)
         const IT_VALUES = { 'Sec': 1.0, 'Gras': 1.2, 'Très Gras': 1.4 };
-        const IC_VALUES = { 'Pas de vent': 1.0, 'Vent faible < 15': 1.0, 'Vent modéré': 1.2, 'Vent Moyen': 1.3, 'Vent Fort': 1.5 };
+        const IC_VALUES = {
+            'Vent faible < 15': 1.0,
+            'Vent modéré 15-30': 1.2,
+            'Vent fort 30-50': 1.3,
+            'Vent très fort >50': 1.5,
+            // Rétrocompatibilité
+            'Pas de vent': 1.0,
+            'Vent modéré': 1.2,
+            'Vent Moyen': 1.3,
+            'Vent Fort': 1.5
+        };
         const ITEMP_VALUES = { 'Moyen 12-19': 1.0, 'Froid 6-11': 1.25, 'Chaud 20-28': 1.25, 'Très Froid <5': 1.4, 'Très Chaud >28': 1.4 };
         const IP_VALUES = { 'Pas de pluie': 1.0, 'Pluie': 1.1, 'Grosse Pluie': 1.3 };
+
+        // Normalisation des anciennes valeurs IC vers les nouvelles options du formulaire
+        function normalizeICValue(ic) {
+            if (ic === 'Pas de vent') return 'Vent faible < 15';
+            if (ic === 'Vent modéré') return 'Vent modéré 15-30';
+            if (ic === 'Vent Moyen') return 'Vent fort 30-50';
+            if (ic === 'Vent Fort') return 'Vent très fort >50';
+            return ic || 'Vent faible < 15';
+        }
+
+        // Helpers Dates (Support champ libre JJ/MM/AAAA ou AAAA-MM-JJ)
+        function parseFlexibleDate(dateStr) {
+            if (!dateStr) return new Date(0);
+            const str = String(dateStr).trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+                const [y, m, d] = str.split('-').map(Number);
+                return new Date(y, m - 1, d);
+            }
+            if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
+                const [d, m, y] = str.split('/').map(Number);
+                return new Date(y, m - 1, d);
+            }
+            if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(str)) {
+                const [d, m, y] = str.split('-').map(Number);
+                return new Date(y, m - 1, d);
+            }
+            const parsed = new Date(str);
+            return isNaN(parsed.getTime()) ? new Date(0) : parsed;
+        }
+
+        function getYearFromDateStr(dateStr) {
+            const d = parseFlexibleDate(dateStr);
+            if (d.getTime() === 0) {
+                const match = String(dateStr).match(/\d{4}/);
+                return match ? match[0] : '';
+            }
+            return String(d.getFullYear());
+        }
+
+        function getMonthFromDateStr(dateStr) {
+            const d = parseFlexibleDate(dateStr);
+            if (d.getTime() === 0) return '';
+            return String(d.getMonth() + 1).padStart(2, '0');
+        }
+
+        function formatDisplayDate(dateStr) {
+            const d = parseFlexibleDate(dateStr);
+            if (d.getTime() === 0) return dateStr || '-';
+            const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
+            return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+
+        function getTodayFormatted() {
+            const now = new Date();
+            const d = String(now.getDate()).padStart(2, '0');
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const y = now.getFullYear();
+            return `${d}/${m}/${y}`;
+        }
 
         // Helper: Convert HH:MM:SS to total hours
         function durationToHours(durationStr) {
             if (!durationStr) return 0;
-            const parts = durationStr.split(':').map(Number);
+            const parts = String(durationStr).split(':').map(Number);
             if (parts.length === 3) {
                 return parts[0] + parts[1] / 60 + parts[2] / 3600;
             } else if (parts.length === 2) {
@@ -579,7 +1022,6 @@
             const moyRef = actCfg.moyRef;
             const coef = actCfg.coef;
 
-            // Formule : (Distance/10 + D+/100) * (Moyenne / Moy_Ref) * Coef * Data_IT * Data_IC * Data_Itemp * Data_IP
             const baseEffort = (ride.distance / 10) + (ride.elevation / 100);
             const speedRatio = moyRef > 0 ? (avgSpeed / moyRef) : 1;
             const envCoeffs = dataIT * dataIC * dataItemp * dataIP;
@@ -588,6 +1030,7 @@
 
             return {
                 avgSpeed: Math.round(avgSpeed * 10) / 10,
+                hours,
                 dataIT,
                 dataIC,
                 dataItemp,
@@ -598,10 +1041,69 @@
 
         // Category by Difficulty score
         function getDifficultyCategory(score) {
-            if (score < 5) return { label: 'Facile', color: '#10b981' };
-            if (score < 10) return { label: 'Modéré', color: '#3b82f6' };
-            if (score < 15) return { label: 'Difficile', color: '#f59e0b' };
-            return { label: 'Très Difficile', color: '#ef4444' };
+            const t = i18n[currentLang];
+            if (score < 5) return { label: t.diffEasy, color: '#10b981' };
+            if (score < 10) return { label: t.diffMod, color: '#3b82f6' };
+            if (score < 15) return { label: t.diffHard, color: '#f59e0b' };
+            return { label: t.diffVeryHard, color: '#ef4444' };
+        }
+
+        // Gestion de la langue
+        function setLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem(STORAGE_LANG, lang);
+            document.documentElement.lang = lang;
+
+            // Mise à jour visuelle des drapeaux
+            const btnFr = document.getElementById('langBtnFr');
+            const btnEn = document.getElementById('langBtnEn');
+            if (lang === 'fr') {
+                btnFr.classList.add('ring-2', 'ring-orange-500', 'opacity-100');
+                btnFr.classList.remove('opacity-50');
+                btnEn.classList.remove('ring-2', 'ring-orange-500', 'opacity-100');
+                btnEn.classList.add('opacity-50');
+            } else {
+                btnEn.classList.add('ring-2', 'ring-orange-500', 'opacity-100');
+                btnEn.classList.remove('opacity-50');
+                btnFr.classList.remove('ring-2', 'ring-orange-500', 'opacity-100');
+                btnFr.classList.add('opacity-50');
+            }
+
+            const t = i18n[lang];
+
+            // Traduction des attributs data-i18n
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (t[key]) {
+                    el.textContent = t[key];
+                }
+            });
+
+            // Traduction des sélecteurs de filtres
+            const monthSel = document.getElementById('filterMonth');
+            const currentMonth = monthSel.value;
+            monthSel.options[0].textContent = t.allMonths;
+            for (let i = 1; i <= 12; i++) {
+                monthSel.options[i].textContent = t.months[i - 1];
+            }
+            monthSel.value = currentMonth;
+
+            document.getElementById('filterActivity').options[0].textContent = t.allActivities;
+            document.getElementById('recordFilterActivity').options[0].textContent = t.allActivities;
+
+            populateYearFilter();
+
+            // Mise à jour des labels graphiques
+            if (chartDifficultyObj) {
+                chartDifficultyObj.data.labels = t.chartDiffLabels;
+            }
+            if (chartHistoryObj) {
+                chartHistoryObj.data.datasets[0].label = t.chartDistLabel;
+                chartHistoryObj.data.datasets[1].label = t.chartElevLabel;
+            }
+
+            applyFilters();
+            updateRecordsSection();
         }
 
         // Initialization
@@ -610,7 +1112,7 @@
             loadRides();
             populateYearFilter();
             initCharts();
-            applyFilters();
+            setLanguage(currentLang);
         };
 
         // Load & Save Methods
@@ -648,6 +1150,7 @@
             localStorage.setItem(STORAGE_SETTINGS, JSON.stringify(settings));
             closeModal('settingsModal');
             applyFilters();
+            updateRecordsSection();
         }
 
         function resetDefaultSettings() {
@@ -670,14 +1173,89 @@
         }
 
         function populateYearFilter() {
+            const t = i18n[currentLang];
             const filterYear = document.getElementById('filterYear');
-            const years = [...new Set(rides.map(r => r.date.substring(0, 4)))].sort((a,b) => b - a);
-            filterYear.innerHTML = '<option value="ALL">Toutes les années</option>';
-            years.forEach(y => {
-                const opt = document.createElement('option');
-                opt.value = y;
-                opt.textContent = y;
-                filterYear.appendChild(opt);
+            const recFilterYear = document.getElementById('recordFilterYear');
+            const prevVal = filterYear.value || 'ALL';
+            const prevRecVal = recFilterYear.value || 'ALL';
+
+            const years = [...new Set(rides.map(r => getYearFromDateStr(r.date)).filter(Boolean))].sort((a, b) => b - a);
+            
+            [filterYear, recFilterYear].forEach(sel => {
+                sel.innerHTML = `<option value="ALL">${t.allYears}</option>`;
+                years.forEach(y => {
+                    const opt = document.createElement('option');
+                    opt.value = y;
+                    opt.textContent = y;
+                    sel.appendChild(opt);
+                });
+            });
+
+            if (years.includes(prevVal)) filterYear.value = prevVal;
+            if (years.includes(prevRecVal)) recFilterYear.value = prevRecVal;
+        }
+
+        // Tri des colonnes de l'historique
+        function toggleSort(column) {
+            if (sortState.column === column) {
+                sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.column = column;
+                sortState.direction = (column === 'activity' || column === 'location' || column === 'conditions') ? 'asc' : 'desc';
+            }
+            updateSortIcons();
+            applyFilters();
+        }
+
+        function updateSortIcons() {
+            const cols = ['date', 'activity', 'location', 'distance', 'elevation', 'duration', 'avgSpeed', 'ftp', 'difficulty', 'conditions'];
+            cols.forEach(col => {
+                const iconEl = document.getElementById(`sort-icon-${col}`);
+                if (!iconEl) return;
+                if (sortState.column === col) {
+                    iconEl.className = 'text-orange-400';
+                    iconEl.innerHTML = sortState.direction === 'asc'
+                        ? '<i class="fa-solid fa-sort-up"></i>'
+                        : '<i class="fa-solid fa-sort-down"></i>';
+                } else {
+                    iconEl.className = 'text-slate-600';
+                    iconEl.innerHTML = '<i class="fa-solid fa-sort"></i>';
+                }
+            });
+        }
+
+        function sortRidesList(list) {
+            const { column, direction } = sortState;
+            const mult = direction === 'asc' ? 1 : -1;
+
+            return [...list].sort((a, b) => {
+                const calcA = computeRideCalculatedData(a);
+                const calcB = computeRideCalculatedData(b);
+
+                switch (column) {
+                    case 'date':
+                        return (parseFlexibleDate(a.date) - parseFlexibleDate(b.date)) * mult;
+                    case 'activity':
+                        return (a.activity || '').localeCompare(b.activity || '') * mult;
+                    case 'location':
+                        return (a.location || '').localeCompare(b.location || '') * mult;
+                    case 'distance':
+                        return ((parseFloat(a.distance) || 0) - (parseFloat(b.distance) || 0)) * mult;
+                    case 'elevation':
+                        return ((parseInt(a.elevation) || 0) - (parseInt(b.elevation) || 0)) * mult;
+                    case 'duration':
+                        return (calcA.hours - calcB.hours) * mult;
+                    case 'avgSpeed':
+                        return (calcA.avgSpeed - calcB.avgSpeed) * mult;
+                    case 'ftp':
+                        return ((parseFloat(a.ftp) || 0) - (parseFloat(b.ftp) || 0)) * mult;
+                    case 'difficulty':
+                        return (calcA.difficulty - calcB.difficulty) * mult;
+                    case 'conditions':
+                        return (a.conditions || '').localeCompare(b.conditions || '') * mult;
+                    default:
+                        return 0;
+                }
             });
         }
 
@@ -687,17 +1265,18 @@
             const mo = document.getElementById('filterMonth').value;
             const act = document.getElementById('filterActivity').value;
 
-            return rides.filter(r => {
-                const dateParts = r.date.split('-');
-                const y = dateParts[0];
-                const m = dateParts[1];
+            const filtered = rides.filter(r => {
+                const y = getYearFromDateStr(r.date);
+                const m = getMonthFromDateStr(r.date);
 
                 const matchYear = (yr === 'ALL' || yr === y);
                 const matchMonth = (mo === 'ALL' || mo === m);
                 const matchAct = (act === 'ALL' || act === r.activity);
 
                 return matchYear && matchMonth && matchAct;
-            }).sort((a,b) => new Date(b.date) - new Date(a.date));
+            });
+
+            return sortRidesList(filtered);
         }
 
         function applyFilters() {
@@ -718,7 +1297,7 @@
 
             list.forEach(r => {
                 const calc = computeRideCalculatedData(r);
-                totalHours += durationToHours(r.duration);
+                totalHours += calc.hours;
                 sumDiff += calc.difficulty;
             });
 
@@ -727,34 +1306,42 @@
 
             document.getElementById('kpiCount').textContent = count;
             document.getElementById('kpiDistance').textContent = Math.round(totalDist * 10) / 10;
-            document.getElementById('kpiElevation').textContent = totalElev.toLocaleString('fr-FR');
+            document.getElementById('kpiElevation').textContent = totalElev.toLocaleString(currentLang === 'en' ? 'en-US' : 'fr-FR');
             document.getElementById('kpiSpeed').textContent = (Math.round(avgSpeed * 10) / 10).toFixed(1);
             document.getElementById('kpiDiff').textContent = (Math.round(avgDiff * 10) / 10).toFixed(1);
         }
 
         // Render Data Table
         function updateTable(list) {
+            const t = i18n[currentLang];
             const tbody = document.getElementById('ridesTableBody');
-            document.getElementById('tableCount').textContent = `${list.length} sortie(s)`;
+            document.getElementById('tableCount').textContent = `${list.length} ${t.ridesCountSuffix}`;
             tbody.innerHTML = '';
 
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-500">Aucune sortie trouvée pour ces filtres.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="11" class="text-center py-8 text-slate-500">${t.noRidesFound}</td></tr>`;
                 return;
             }
 
             list.forEach(ride => {
                 const calc = computeRideCalculatedData(ride);
                 const diffCat = getDifficultyCategory(calc.difficulty);
+                const formattedDate = formatDisplayDate(ride.date);
+                const hasRecord = ride.records && String(ride.records).trim().length > 0;
 
-                // Format Date FR
-                const dateObj = new Date(ride.date);
-                const formattedDate = dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                const trophyHtml = hasRecord
+                    ? `<i class="fa-solid fa-trophy text-amber-400 mr-1.5 drop-shadow" title="Record : ${String(ride.records).replace(/"/g, '&quot;')}"></i>`
+                    : '';
 
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-800/40 transition-colors';
                 tr.innerHTML = `
-                    <td class="px-4 py-3 font-mono text-xs whitespace-nowrap text-slate-300">${formattedDate}</td>
+                    <td class="px-4 py-3 font-mono text-xs whitespace-nowrap text-slate-300">
+                        <div class="flex items-center">
+                            ${trophyHtml}
+                            <span>${formattedDate}</span>
+                        </div>
+                    </td>
                     <td class="px-4 py-3">
                         <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${getActivityBadge(ride.activity)}">
                             ${ride.activity}
@@ -763,12 +1350,14 @@
                     <td class="px-4 py-3 max-w-xs">
                         <div class="font-medium text-slate-200 truncate">${ride.location || '-'}</div>
                         <div class="text-xs text-slate-400 truncate">${ride.route || ''}</div>
+                        ${hasRecord ? `<div class="text-[11px] text-amber-400/90 truncate mt-0.5"><i class="fa-solid fa-award mr-1"></i>${ride.records}</div>` : ''}
                     </td>
-                    <td class="px-4 py-3 text-right font-semibold text-slate-100">${ride.distance} <span class="text-xs text-slate-400 font-normal">km</span></td>
-                    <td class="px-4 py-3 text-right font-medium text-amber-400">${ride.elevation} <span class="text-xs text-slate-400 font-normal">m</span></td>
-                    <td class="px-4 py-3 text-right font-mono text-xs text-slate-300">${ride.duration}</td>
-                    <td class="px-4 py-3 text-right font-semibold text-slate-200">${calc.avgSpeed} <span class="text-xs text-slate-400 font-normal">km/h</span></td>
-                    <td class="px-4 py-3 text-center">
+                    <td class="px-4 py-3 text-right font-semibold text-slate-100 whitespace-nowrap">${ride.distance} <span class="text-xs text-slate-400 font-normal">km</span></td>
+                    <td class="px-4 py-3 text-right font-medium text-amber-400 whitespace-nowrap">${ride.elevation} <span class="text-xs text-slate-400 font-normal">m</span></td>
+                    <td class="px-4 py-3 text-right font-mono text-xs text-slate-300 whitespace-nowrap">${ride.duration}</td>
+                    <td class="px-4 py-3 text-right font-semibold text-slate-200 whitespace-nowrap">${calc.avgSpeed} <span class="text-xs text-slate-400 font-normal">km/h</span></td>
+                    <td class="px-4 py-3 text-right font-mono text-xs text-slate-300 whitespace-nowrap">${ride.ftp ? `${ride.ftp} <span class="text-slate-500">W</span>` : '-'}</td>
+                    <td class="px-4 py-3 text-center whitespace-nowrap">
                         <span class="px-2.5 py-1 rounded-full text-xs font-bold text-slate-950" style="background-color: ${diffCat.color}">
                             ${calc.difficulty} (${diffCat.label})
                         </span>
@@ -777,7 +1366,7 @@
                         <div title="Météo">${ride.conditions || '-'}</div>
                         <div class="text-[10px] text-slate-500">IT:${calc.dataIT} | IC:${calc.dataIC} | Itemp:${calc.dataItemp} | IP:${calc.dataIP}</div>
                     </td>
-                    <td class="px-4 py-3 text-center">
+                    <td class="px-4 py-3 text-center whitespace-nowrap">
                         <div class="flex items-center justify-center space-x-2">
                             <button onclick="editRide('${ride.id}')" class="text-slate-400 hover:text-orange-400 transition-colors p-1">
                                 <i class="fa-solid fa-pen"></i>
@@ -801,6 +1390,120 @@
             }
         }
 
+        // ==========================================
+        // SYNTHÈSE DES RECORDS & ÉVOLUTION
+        // ==========================================
+        function updateRecordsSection() {
+            const t = i18n[currentLang];
+            const yr = document.getElementById('recordFilterYear').value;
+            const act = document.getElementById('recordFilterActivity').value;
+            const selectedMetric = document.getElementById('recordMetricSelect').value;
+
+            const filtered = rides.filter(r => {
+                const matchYear = (yr === 'ALL' || getYearFromDateStr(r.date) === yr);
+                const matchAct = (act === 'ALL' || r.activity === act);
+                return matchYear && matchAct;
+            });
+
+            const tbody = document.getElementById('recordsTableBody');
+            tbody.innerHTML = '';
+
+            const criteriaList = [
+                { key: 'distance', label: t.recRowKm, icon: 'fa-route text-orange-400', getValue: (r, c) => parseFloat(r.distance) || 0 },
+                { key: 'duration', label: t.recRowDur, icon: 'fa-stopwatch text-sky-400', getValue: (r, c) => c.hours },
+                { key: 'elevation', label: t.recRowElev, icon: 'fa-mountain text-amber-400', getValue: (r, c) => parseInt(r.elevation) || 0 },
+                { key: 'speed', label: t.recRowAvg, icon: 'fa-gauge-high text-emerald-400', getValue: (r, c) => c.avgSpeed },
+                { key: 'difficulty', label: t.recRowDiff, icon: 'fa-bolt text-rose-400', getValue: (r, c) => c.difficulty }
+            ];
+
+            criteriaList.forEach(crit => {
+                let bestRide = null;
+                let bestCalc = null;
+                let bestVal = -Infinity;
+
+                filtered.forEach(r => {
+                    const calc = computeRideCalculatedData(r);
+                    const val = crit.getValue(r, calc);
+                    if (val > bestVal) {
+                        bestVal = val;
+                        bestRide = r;
+                        bestCalc = calc;
+                    }
+                });
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40 transition-colors';
+
+                if (!bestRide) {
+                    tr.innerHTML = `
+                        <td class="px-4 py-3 font-bold text-slate-200 whitespace-nowrap"><i class="fa-solid ${crit.icon} mr-2"></i>${crit.label}</td>
+                        <td colspan="9" class="px-4 py-3 text-slate-500 text-xs">-</td>
+                    `;
+                } else {
+                    const diffCat = getDifficultyCategory(bestCalc.difficulty);
+                    tr.innerHTML = `
+                        <td class="px-4 py-3 font-bold text-slate-100 whitespace-nowrap bg-slate-950/30">
+                            <i class="fa-solid ${crit.icon} mr-2"></i>${crit.label}
+                        </td>
+                        <td class="px-4 py-3 font-mono text-xs whitespace-nowrap">${formatDisplayDate(bestRide.date)}</td>
+                        <td class="px-4 py-3 font-medium text-slate-200 whitespace-nowrap">${bestRide.location || '-'}</td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${getActivityBadge(bestRide.activity)}">${bestRide.activity}</span>
+                        </td>
+                        <td class="px-4 py-3 text-center whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded-full text-xs font-bold text-slate-950 ${crit.key === 'difficulty' ? 'ring-2 ring-white' : ''}" style="background-color: ${diffCat.color}">
+                                ${bestCalc.difficulty}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap ${crit.key === 'elevation' ? 'font-bold text-amber-400 underline decoration-amber-400/50' : 'text-slate-300'}">${bestRide.elevation} m</td>
+                        <td class="px-4 py-3 text-right font-mono text-xs whitespace-nowrap ${crit.key === 'duration' ? 'font-bold text-sky-400 underline decoration-sky-400/50' : 'text-slate-300'}">${bestRide.duration}</td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap ${crit.key === 'distance' ? 'font-bold text-orange-400 underline decoration-orange-400/50' : 'text-slate-300'}">${bestRide.distance} km</td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap ${crit.key === 'speed' ? 'font-bold text-emerald-400 underline decoration-emerald-400/50' : 'text-slate-300'}">${bestCalc.avgSpeed} km/h</td>
+                        <td class="px-4 py-3 text-xs text-slate-400 max-w-xs truncate">${bestRide.route || '-'}</td>
+                    `;
+                }
+                tbody.appendChild(tr);
+            });
+
+            // Calcul de l'évolution chronologique des records
+            if (!chartRecordsEvoObj) return;
+
+            const sortedAsc = [...filtered].sort((a, b) => parseFlexibleDate(a.date) - parseFlexibleDate(b.date));
+            const metricObj = criteriaList.find(c => c.key === selectedMetric) || criteriaList[0];
+
+            let currentMax = -Infinity;
+            const evoLabels = [];
+            const evoData = [];
+            const evoMeta = [];
+
+            sortedAsc.forEach(r => {
+                const calc = computeRideCalculatedData(r);
+                const val = Math.round(metricObj.getValue(r, calc) * 100) / 100;
+                if (val > currentMax) {
+                    currentMax = val;
+                    evoLabels.push(formatDisplayDate(r.date));
+                    evoData.push(currentMax);
+                    evoMeta.push(`${r.activity} - ${r.location || r.route || ''}`);
+                }
+            });
+
+            const unitMap = {
+                distance: 'km',
+                duration: 'h',
+                elevation: 'm',
+                speed: 'km/h',
+                difficulty: 'pts'
+            };
+
+            chartRecordsEvoObj.data.labels = evoLabels;
+            chartRecordsEvoObj.data.datasets[0].label = `${t.chartRecEvoLabel} (${unitMap[selectedMetric]})`;
+            chartRecordsEvoObj.data.datasets[0].data = evoData;
+            chartRecordsEvoObj.options.plugins.tooltip.callbacks.afterLabel = function(ctx) {
+                return evoMeta[ctx.dataIndex] || '';
+            };
+            chartRecordsEvoObj.update();
+        }
+
         // Charts Logic
         function initCharts() {
             Chart.defaults.color = '#94a3b8';
@@ -811,7 +1514,7 @@
             chartDifficultyObj = new Chart(ctxDiff, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Facile (<5)', 'Modéré (5-10)', 'Difficile (10-15)', 'Très Difficile (>15)'],
+                    labels: i18n[currentLang].chartDiffLabels,
                     datasets: [{
                         data: [0, 0, 0, 0],
                         backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
@@ -852,14 +1555,14 @@
                     labels: [],
                     datasets: [
                         {
-                            label: 'Distance (km)',
+                            label: i18n[currentLang].chartDistLabel,
                             data: [],
                             backgroundColor: '#f97316',
                             borderRadius: 6,
                             yAxisID: 'y'
                         },
                         {
-                            label: 'D+ (m)',
+                            label: i18n[currentLang].chartElevLabel,
                             data: [],
                             backgroundColor: '#38bdf8',
                             borderRadius: 6,
@@ -878,10 +1581,42 @@
                     plugins: { legend: { position: 'top', labels: { boxWidth: 10 } } }
                 }
             });
+
+            // Chart Records Evolution
+            const ctxRec = document.getElementById('chartRecordsEvo').getContext('2d');
+            chartRecordsEvoObj = new Chart(ctxRec, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: i18n[currentLang].chartRecEvoLabel,
+                        data: [],
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#f97316',
+                        pointBorderColor: '#fff',
+                        pointRadius: 5,
+                        fill: true,
+                        stepped: false,
+                        tension: 0.25
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' } }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
         }
 
         function updateCharts(list) {
-            // Difficulty categories count
             let countsDiff = [0, 0, 0, 0];
             let countsAct = { 'VTT': 0, 'Gravel': 0, 'Route': 0 };
 
@@ -903,11 +1638,10 @@
             chartActivityObj.data.datasets[0].data = [countsAct['VTT'], countsAct['Gravel'], countsAct['Route']];
             chartActivityObj.update();
 
-            // History chart sorted chronologically
-            const sortedAsc = [...list].sort((a,b) => new Date(a.date) - new Date(b.date)).slice(-10); // Last 10 rides
+            const sortedAsc = [...list].sort((a, b) => parseFlexibleDate(a.date) - parseFlexibleDate(b.date)).slice(-10);
             chartHistoryObj.data.labels = sortedAsc.map(r => {
-                const d = new Date(r.date);
-                return `${d.getDate()}/${d.getMonth()+1}`;
+                const d = parseFlexibleDate(r.date);
+                return d.getTime() === 0 ? r.date : `${d.getDate()}/${d.getMonth() + 1}`;
             });
             chartHistoryObj.data.datasets[0].data = sortedAsc.map(r => r.distance);
             chartHistoryObj.data.datasets[1].data = sortedAsc.map(r => r.elevation);
@@ -916,17 +1650,20 @@
 
         // Modal Operations
         function openModal(id) {
+            const t = i18n[currentLang];
             if (id === 'rideModal' && !document.getElementById('rideId').value) {
-                // Pre-fill today date
                 document.getElementById('rideForm').reset();
                 document.getElementById('rideId').value = '';
-                document.getElementById('inputDate').valueAsDate = new Date();
-                document.getElementById('modalTitle').innerHTML = '<i class="fa-solid fa-pen-to-square text-orange-500"></i> Enregistrer une sortie vélo';
+                document.getElementById('inputDate').value = getTodayFormatted();
+                document.getElementById('modalTitle').innerHTML = `<i class="fa-solid fa-pen-to-square text-orange-500"></i> <span>${t.modalNewTitle}</span>`;
             }
             document.getElementById(id).classList.remove('hidden');
         }
 
         function closeModal(id) {
+            if (id === 'rideModal') {
+                document.getElementById('rideId').value = '';
+            }
             document.getElementById(id).classList.add('hidden');
         }
 
@@ -937,14 +1674,16 @@
 
             const rideData = {
                 id,
-                date: document.getElementById('inputDate').value,
+                date: document.getElementById('inputDate').value.trim(),
                 activity: document.getElementById('inputActivity').value,
-                location: document.getElementById('inputLocation').value,
+                location: document.getElementById('inputLocation').value.trim(),
                 distance: parseFloat(document.getElementById('inputDistance').value),
                 elevation: parseInt(document.getElementById('inputElevation').value),
-                duration: document.getElementById('inputDuration').value,
-                route: document.getElementById('inputRoute').value,
-                conditions: document.getElementById('inputConditions').value,
+                duration: document.getElementById('inputDuration').value.trim(),
+                ftp: document.getElementById('inputFtp').value.trim(),
+                records: document.getElementById('inputRecords').value.trim(),
+                route: document.getElementById('inputRoute').value.trim(),
+                conditions: document.getElementById('inputConditions').value.trim(),
                 it: document.getElementById('inputIT').value,
                 ic: document.getElementById('inputIC').value,
                 itemp: document.getElementById('inputItemp').value,
@@ -961,6 +1700,7 @@
             saveRidesToStorage();
             populateYearFilter();
             applyFilters();
+            updateRecordsSection();
             closeModal('rideModal');
         }
 
@@ -968,22 +1708,25 @@
         function editRide(id) {
             const ride = rides.find(r => r.id === id);
             if (!ride) return;
+            const t = i18n[currentLang];
 
             document.getElementById('rideId').value = ride.id;
-            document.getElementById('inputDate').value = ride.date;
+            document.getElementById('inputDate').value = formatDisplayDate(ride.date);
             document.getElementById('inputActivity').value = ride.activity;
             document.getElementById('inputLocation').value = ride.location || '';
             document.getElementById('inputDistance').value = ride.distance;
             document.getElementById('inputElevation').value = ride.elevation;
             document.getElementById('inputDuration').value = ride.duration;
+            document.getElementById('inputFtp').value = ride.ftp || '';
+            document.getElementById('inputRecords').value = ride.records || '';
             document.getElementById('inputRoute').value = ride.route || '';
             document.getElementById('inputConditions').value = ride.conditions || '';
             document.getElementById('inputIT').value = ride.it || 'Sec';
-            document.getElementById('inputIC').value = ride.ic || 'Pas de vent';
+            document.getElementById('inputIC').value = normalizeICValue(ride.ic);
             document.getElementById('inputItemp').value = ride.itemp || 'Moyen 12-19';
             document.getElementById('inputIP').value = ride.ip || 'Pas de pluie';
 
-            document.getElementById('modalTitle').innerHTML = '<i class="fa-solid fa-pen-to-square text-orange-500"></i> Modifier la sortie';
+            document.getElementById('modalTitle').innerHTML = `<i class="fa-solid fa-pen-to-square text-orange-500"></i> <span>${t.modalEditTitle}</span>`;
             openModal('rideModal');
         }
 
@@ -993,152 +1736,143 @@
             saveRidesToStorage();
             populateYearFilter();
             applyFilters();
+            updateRecordsSection();
         }
-    </script>
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js');
-  }
-</script>
-<script>
-  // Demande le mode plein écran si l'API est supportée par le conteneur WebView
-  document.addEventListener("DOMContentLoaded", function() {
-    if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(err => {
-        // Ignorer si le conteneur bloque le plein écran automatique
-      });
-    }
-  });
-// ==========================================
-// FONCTIONS EXPORT CSV ET EXCEL (XLSX)
-// ==========================================
 
-function exportCSV() {
-    if (rides.length === 0) {
-        alert("Aucune sortie à exporter !");
-        return;
-    }
-    
-    // En-têtes du fichier CSV
-    const headers = ["ID", "Date", "Activité", "Lieu", "Distance_km", "Dplus_m", "Duree", "Parcours", "Meteo", "IT", "IC", "Itemp", "IP"];
-    
-    // Transformation des données
-    const rows = rides.map(r => [
-        r.id,
-        r.date,
-        `"${r.activity || ''}"`,
-        `"${(r.location || '').replace(/"/g, '""')}"`,
-        r.distance,
-        r.elevation,
-        `"${r.duration}"`,
-        `"${(r.route || '').replace(/"/g, '""')}"`,
-        `"${(r.conditions || '').replace(/"/g, '""')}"`,
-        `"${r.it || 'Sec'}"`,
-        `"${r.ic || 'Pas de vent'}"`,
-        `"${r.itemp || 'Moyen 12-19'}"`,
-        `"${r.ip || 'Pas de pluie'}"`
-    ]);
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').catch(() => {});
+        }
 
-    const csvContent = "\uFEFF" + [headers.join(";"), ...rows.map(e => e.join(";"))].join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `VeloStats_Export_${new Date().toISOString().slice(0,10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function exportXLSX() {
-    if (rides.length === 0) {
-        alert("Aucune sortie à exporter !");
-        return;
-    }
-    // Génération automatique avec SheetJS
-    const worksheet = XLSX.utils.json_to_sheet(rides);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Sorties Velo");
-    XLSX.writeFile(workbook, `VeloStats_Export_${new Date().toISOString().slice(0,10)}.xlsx`);
-}
-
-// ==========================================
-// FONCTION IMPORT (CSV, XLSX, JSON)
-// ==========================================
-
-function importData(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    const fileName = file.name.toLowerCase();
-
-    reader.onload = function(e) {
-        try {
-            let importedRides = [];
-
-            if (fileName.endsWith('.json')) {
-                importedRides = JSON.parse(e.target.result);
-            } else {
-                // Traitement CSV ou XLSX via SheetJS
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                importedRides = XLSX.utils.sheet_to_json(worksheet);
-            }
-
-            if (!Array.isArray(importedRides) || importedRides.length === 0) {
-                alert("Fichier d'import vide ou format invalide.");
+        // ==========================================
+        // FONCTIONS EXPORT CSV ET EXCEL (XLSX)
+        // ==========================================
+        function exportCSV() {
+            const t = i18n[currentLang];
+            if (rides.length === 0) {
+                alert(t.alertNoExport);
                 return;
             }
 
-            // Normalisation & fusion des données
-            let addedCount = 0;
-            importedRides.forEach(item => {
-                const newRide = {
-                    id: item.id || item.ID || Date.now().toString() + Math.random().toString(36).substr(2, 4),
-                    date: item.date || item.Date || new Date().toISOString().slice(0, 10),
-                    activity: item.activity || item.Activité || item.Activite || 'VTT',
-                    location: item.location || item.Lieu || '',
-                    distance: parseFloat(item.distance || item.Distance_km || item.Distance || 0),
-                    elevation: parseInt(item.elevation || item.Dplus_m || item.Dplus || 0),
-                    duration: item.duration || item.Duree || item.Durée || '01:00:00',
-                    route: item.route || item.Parcours || '',
-                    conditions: item.conditions || item.Meteo || item.Météo || '',
-                    it: item.it || item.IT || 'Sec',
-                    ic: item.ic || item.IC || 'Pas de vent',
-                    itemp: item.itemp || item.Itemp || 'Moyen 12-19',
-                    ip: item.ip || item.IP || 'Pas de pluie'
-                };
+            const headers = ["ID", "Date", "Activité", "Lieu", "Distance_km", "Dplus_m", "Duree", "FTP_W", "Records", "Parcours", "Meteo", "IT", "IC", "Itemp", "IP"];
 
-                // Éviter les doublons basés sur l'ID
-                if (!rides.some(r => r.id === newRide.id)) {
-                    rides.push(newRide);
-                    addedCount++;
-                }
-            });
+            const rows = rides.map(r => [
+                r.id,
+                `"${r.date}"`,
+                `"${r.activity || ''}"`,
+                `"${(r.location || '').replace(/"/g, '""')}"`,
+                r.distance,
+                r.elevation,
+                `"${r.duration}"`,
+                `"${(r.ftp || '').replace(/"/g, '""')}"`,
+                `"${(r.records || '').replace(/"/g, '""')}"`,
+                `"${(r.route || '').replace(/"/g, '""')}"`,
+                `"${(r.conditions || '').replace(/"/g, '""')}"`,
+                `"${r.it || 'Sec'}"`,
+                `"${r.ic || 'Vent faible < 15'}"`,
+                `"${r.itemp || 'Moyen 12-19'}"`,
+                `"${r.ip || 'Pas de pluie'}"`
+            ]);
 
-            // Sauvegarde dans le localStorage
-            saveRidesToStorage();
-            populateYearFilter();
-            applyFilters();
-
-            alert(`${addedCount} nouvelle(s) sortie(s) importée(s) avec succès !`);
-            event.target.value = ''; // Réinitialiser le champ de fichier
-
-        } catch (err) {
-            console.error(err);
-            alert("Erreur lors de la lecture du fichier d'importation.");
+            const csvContent = "\uFEFF" + [headers.join(";"), ...rows.map(e => e.join(";"))].join("\n");
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `VeloStats_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
-    };
 
-    if (fileName.endsWith('.json')) {
-        reader.readAsText(file);
-    } else {
-        reader.readAsArrayBuffer(file);
-    }
-}
-</script>
+        function exportXLSX() {
+            const t = i18n[currentLang];
+            if (rides.length === 0) {
+                alert(t.alertNoExport);
+                return;
+            }
+            const worksheet = XLSX.utils.json_to_sheet(rides);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Sorties Velo");
+            XLSX.writeFile(workbook, `VeloStats_Export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        }
+
+        // ==========================================
+        // FONCTION IMPORT (CSV, XLSX, JSON)
+        // ==========================================
+        function importData(event) {
+            const t = i18n[currentLang];
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            const fileName = file.name.toLowerCase();
+
+            reader.onload = function(e) {
+                try {
+                    let importedRides = [];
+
+                    if (fileName.endsWith('.json')) {
+                        importedRides = JSON.parse(e.target.result);
+                    } else {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        importedRides = XLSX.utils.sheet_to_json(worksheet);
+                    }
+
+                    if (!Array.isArray(importedRides) || importedRides.length === 0) {
+                        alert(t.alertImportEmpty);
+                        return;
+                    }
+
+                    let addedCount = 0;
+                    importedRides.forEach(item => {
+                        const newRide = {
+                            id: String(item.id || item.ID || (Date.now().toString() + Math.random().toString(36).substr(2, 4))),
+                            date: String(item.date || item.Date || getTodayFormatted()),
+                            activity: item.activity || item.Activité || item.Activite || 'VTT',
+                            location: item.location || item.Lieu || '',
+                            distance: parseFloat(item.distance || item.Distance_km || item.Distance || 0),
+                            elevation: parseInt(item.elevation || item.Dplus_m || item.Dplus || 0),
+                            duration: item.duration || item.Duree || item.Durée || '01:00:00',
+                            ftp: String(item.ftp || item.FTP || item.FTP_W || ''),
+                            records: String(item.records || item.Records || item.Record || ''),
+                            route: item.route || item.Parcours || '',
+                            conditions: item.conditions || item.Meteo || item.Météo || '',
+                            it: item.it || item.IT || 'Sec',
+                            ic: item.ic || item.IC || 'Vent faible < 15',
+                            itemp: item.itemp || item.Itemp || 'Moyen 12-19',
+                            ip: item.ip || item.IP || 'Pas de pluie'
+                        };
+
+                        if (!rides.some(r => String(r.id) === newRide.id)) {
+                            rides.push(newRide);
+                            addedCount++;
+                        }
+                    });
+
+                    saveRidesToStorage();
+                    populateYearFilter();
+                    applyFilters();
+                    updateRecordsSection();
+
+                    alert(`${addedCount} ${t.alertImportSuccess}`);
+                    event.target.value = '';
+
+                } catch (err) {
+                    console.error(err);
+                    alert(t.alertImportError);
+                }
+            };
+
+            if (fileName.endsWith('.json')) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
+        }
+    </script>
 </body>
 </html>
