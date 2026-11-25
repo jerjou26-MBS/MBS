@@ -67,10 +67,16 @@
             padding-bottom: calc(2rem + var(--sab));
         }
 
-        /* Modales respectant les zones sûres */
+        /* Modales et Drawer respectant les zones sûres */
         .modal-safe {
             padding-top: max(1rem, var(--sat));
             padding-bottom: max(1rem, var(--sab));
+        }
+
+        .drawer-safe {
+            padding-top: calc(4.5rem + var(--sat));
+            padding-bottom: max(1.25rem, var(--sab));
+            padding-left: max(1rem, var(--sal));
         }
 
         /* Custom Scrollbar */
@@ -93,21 +99,25 @@
 </head>
 <body class="bg-slate-950 text-slate-100 flex flex-col">
 
-    <!-- Header / Navbar -->
-    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 z-30 shrink-0">
+    <!-- Header / Navbar (z-50 pour rester au-dessus du tiroir et permettre de le replier via le bouton hamburger) -->
+    <header class="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 z-50 shrink-0 relative">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
-                <!-- Logo & Titre -->
+                <!-- Bouton Menu Hamburger + Logo & Titre -->
                 <div class="flex items-center space-x-3">
-                    <img src="logo.png" onerror="this.style.display='none'" alt="My Bike Stats" class="w-10 h-10 rounded-xl object-cover shadow-lg shadow-orange-500/20">
-                    <div>
+                    <button id="drawerToggleBtn" onclick="toggleSideMenu()" aria-label="Menu" class="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl border border-slate-700 transition-all active:scale-95 flex items-center justify-center shrink-0">
+                        <i id="drawerToggleIcon" class="fa-solid fa-bars text-base w-4 text-center"></i>
+                    </button>
+
+                    <img src="logo.png" onerror="this.style.display='none'" alt="My Bike Stats" class="w-10 h-10 rounded-xl object-cover shadow-lg shadow-orange-500/20 shrink-0">
+                    <div class="flex items-baseline flex-wrap">
                         <span class="text-lg sm:text-xl font-bold bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">My Bike Stats</span>
-                        <span class="hidden sm:inline-block text-xs text-slate-400 ml-2 font-mono">v1.2</span>
+                        <span class="hidden sm:inline-block text-xs text-slate-400 ml-2 font-mono">v1.4</span>
                     </div>
                 </div>
 
-                <!-- Navigation Quick Actions & Langue -->
-                <div class="flex items-center space-x-2 sm:space-x-3">
+                <!-- Navigation Quick Actions -->
+                <div class="flex items-center space-x-2 sm:space-x-3 shrink-0">
                     <button onclick="openModal('rideModal')" class="bg-orange-600 hover:bg-orange-500 text-white px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold flex items-center space-x-2 transition-all shadow-lg shadow-orange-600/30 active:scale-95">
                         <i class="fa-solid fa-plus"></i>
                         <span class="hidden sm:inline" data-i18n="newRide">Nouvelle sortie</span>
@@ -115,33 +125,76 @@
                     <button onclick="openModal('settingsModal')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2.5 rounded-xl border border-slate-700 transition-all" title="Réglages">
                         <i class="fa-solid fa-gear"></i>
                     </button>
-
-                    <!-- Sélecteur de langue FR / EN -->
-                    <div class="flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700 space-x-1">
-                        <button id="langBtnFr" onclick="setLanguage('fr')" title="Français" class="w-7 h-6 rounded-lg overflow-hidden flex items-center justify-center transition-all ring-2 ring-orange-500 opacity-100">
-                            <svg viewBox="0 0 3 2" class="w-full h-full object-cover">
-                                <rect width="1" height="2" x="0" fill="#002395"/>
-                                <rect width="1" height="2" x="1" fill="#ffffff"/>
-                                <rect width="1" height="2" x="2" fill="#ed2939"/>
-                            </svg>
-                        </button>
-                        <button id="langBtnEn" onclick="setLanguage('en')" title="English" class="w-7 h-6 rounded-lg overflow-hidden flex items-center justify-center transition-all opacity-50 hover:opacity-90">
-                            <svg viewBox="0 0 60 30" class="w-full h-full object-cover">
-                                <clipPath id="uk-clip"><path d="M0,0 v30 h60 v-30 z"/></clipPath>
-                                <g clip-path="url(#uk-clip)">
-                                    <path d="M0,0 v30 h60 v-30 z" fill="#012169"/>
-                                    <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/>
-                                    <path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" stroke-width="4"/>
-                                    <path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/>
-                                    <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/>
-                                </g>
-                            </svg>
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
     </header>
+
+    <!-- Backdrop du menu latéral -->
+    <div id="sideMenuBackdrop" onclick="closeSideMenu()" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-30 hidden opacity-0 transition-opacity duration-300"></div>
+
+    <!-- Menu latéral gauche dépliable vers la droite -->
+    <aside id="sideMenu" class="fixed top-0 left-0 bottom-0 w-72 max-w-[82vw] bg-slate-900 border-r border-slate-800 shadow-2xl z-40 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col justify-between drawer-safe pr-4">
+        <div class="space-y-2 overflow-y-auto">
+            <div class="px-3 py-2 flex items-center justify-between border-b border-slate-800/80 mb-2">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400" data-i18n="menuTitle">Menu</span>
+                <button onclick="closeSideMenu()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i class="fa-solid fa-chevron-left text-xs"></i>
+                </button>
+            </div>
+
+            <!-- Raccourci Langage : Français / Anglais -->
+            <div class="px-3 py-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                <div class="flex items-center space-x-3 text-slate-300 mb-2.5">
+                    <i class="fa-solid fa-language text-orange-400 w-5 text-center"></i>
+                    <span class="text-sm font-medium" data-i18n="menuLanguage">Langage</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="drawerLangFr" onclick="setLanguage('fr')" class="flex items-center justify-center space-x-2 py-1.5 px-2.5 rounded-lg text-xs font-semibold border transition-all bg-orange-600/20 border-orange-500 text-orange-300">
+                        <svg viewBox="0 0 3 2" class="w-4 h-3 rounded-xs shrink-0">
+                            <rect width="1" height="2" x="0" fill="#002395"/>
+                            <rect width="1" height="2" x="1" fill="#ffffff"/>
+                            <rect width="1" height="2" x="2" fill="#ed2939"/>
+                        </svg>
+                        <span>Français</span>
+                    </button>
+                    <button id="drawerLangEn" onclick="setLanguage('en')" class="flex items-center justify-center space-x-2 py-1.5 px-2.5 rounded-lg text-xs font-semibold border transition-all bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200">
+                        <svg viewBox="0 0 60 30" class="w-4 h-3 rounded-xs shrink-0">
+                            <path d="M0,0 v30 h60 v-30 z" fill="#012169"/>
+                            <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/>
+                            <path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" stroke-width="4"/>
+                            <path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/>
+                            <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/>
+                        </svg>
+                        <span>English</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Raccourci Paramètres -->
+            <button onclick="closeSideMenu(); openModal('settingsModal')" class="w-full flex items-center space-x-3 px-3 py-3 rounded-xl text-left text-slate-200 hover:bg-slate-800/80 hover:text-orange-400 transition-colors">
+                <i class="fa-solid fa-gear text-orange-400 w-5 text-center"></i>
+                <span class="text-sm font-medium" data-i18n="menuSettings">Paramètres</span>
+            </button>
+
+            <!-- Raccourci À propos -->
+            <button onclick="closeSideMenu(); openModal('aboutModal')" class="w-full flex items-center space-x-3 px-3 py-3 rounded-xl text-left text-slate-200 hover:bg-slate-800/80 hover:text-orange-400 transition-colors">
+                <i class="fa-solid fa-circle-info text-sky-400 w-5 text-center"></i>
+                <span class="text-sm font-medium" data-i18n="menuAbout">À propos</span>
+            </button>
+
+            <!-- Raccourci Soutien au développeur -->
+            <button onclick="closeSideMenu(); openModal('supportModal')" class="w-full flex items-center space-x-3 px-3 py-3 rounded-xl text-left text-slate-200 hover:bg-slate-800/80 hover:text-amber-400 transition-colors">
+                <i class="fa-solid fa-heart text-rose-500 w-5 text-center"></i>
+                <span class="text-sm font-medium" data-i18n="menuSupport">Soutien au développeur</span>
+            </button>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800/80 px-3 text-[11px] text-slate-500 flex items-center justify-between">
+            <span>My Bike Stats</span>
+            <span class="font-mono">v1.4</span>
+        </div>
+    </aside>
 
     <!-- Main Scrollable Container -->
     <div id="appScrollContainer">
@@ -671,6 +724,100 @@
         </div>
     </div>
 
+    <!-- Modal : À propos -->
+    <div id="aboutModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden px-4 overflow-y-auto modal-safe">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative my-auto max-h-full overflow-y-auto">
+            <button onclick="closeModal('aboutModal')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-200">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
+                    <i class="fa-solid fa-bicycle text-lg"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-white" data-i18n="aboutTitle">À propos de My Bike Stats</h2>
+                    <p class="text-xs text-slate-400 font-mono">Version 1.4</p>
+                </div>
+            </div>
+
+            <div class="space-y-4 text-sm text-slate-300 leading-relaxed">
+                <p data-i18n="aboutIntro">
+                    My Bike Stats est un tableau de bord personnel conçu pour suivre, analyser et comparer vos sorties vélo (VTT, Gravel et Route) en toute autonomie.
+                </p>
+
+                <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-2">
+                    <h3 class="text-xs font-semibold uppercase tracking-wider text-orange-400" data-i18n="aboutFeaturesTitle">Fonctionnalités clés</h3>
+                    <ul class="space-y-1.5 text-xs text-slate-300">
+                        <li class="flex items-start gap-2">
+                            <i class="fa-solid fa-check text-emerald-400 mt-0.5"></i>
+                            <span data-i18n="aboutFeat1">Calcul automatique d'un indice de difficulté prenant en compte la distance, le dénivelé D+, la vitesse moyenne, le type de vélo et les conditions météo/terrain.</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="fa-solid fa-check text-emerald-400 mt-0.5"></i>
+                            <span data-i18n="aboutFeat2">Détection automatique et manuelle des records personnels avec suivi de leur évolution chronologique.</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="fa-solid fa-check text-emerald-400 mt-0.5"></i>
+                            <span data-i18n="aboutFeat3">Stockage 100 % local sur votre appareil avec import et export complet aux formats CSV, Excel (.xlsx) et JSON.</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-5 mt-5 border-t border-slate-800">
+                <button type="button" onclick="closeModal('aboutModal')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-2 rounded-xl text-sm font-semibold border border-slate-700" data-i18n="btnClose">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal : Soutien au développeur -->
+    <div id="supportModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden px-4 overflow-y-auto modal-safe">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative my-auto max-h-full overflow-y-auto">
+            <button onclick="closeModal('supportModal')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-200">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                    <i class="fa-solid fa-heart text-lg"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-white" data-i18n="supportTitle">Soutenir le développeur</h2>
+                    <p class="text-xs text-slate-400" data-i18n="supportSubtitle">Aidez à faire évoluer My Bike Stats</p>
+                </div>
+            </div>
+
+            <div class="space-y-4 text-sm text-slate-300 leading-relaxed">
+                <p data-i18n="supportIntro">
+                    My Bike Stats est développé avec passion sur mon temps libre pour offrir aux cyclistes un outil simple, rapide, sans publicité et respectueux de vos données.
+                </p>
+
+                <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <h3 class="text-xs font-semibold uppercase tracking-wider text-amber-400" data-i18n="supportWaysTitle">Comment contribuer ?</h3>
+                    <div class="space-y-2.5 text-xs text-slate-300">
+                        <div class="flex items-start gap-2.5">
+                            <i class="fa-solid fa-share-nodes text-orange-400 mt-0.5"></i>
+                            <span data-i18n="supportWay1">Partagez l'application autour de vous avec vos partenaires de sortie et votre club vélo.</span>
+                        </div>
+                        <div class="flex items-start gap-2.5">
+                            <i class="fa-solid fa-comment-dots text-sky-400 mt-0.5"></i>
+                            <span data-i18n="supportWay2">Proposez vos idées d'amélioration ou signalez d'éventuels bugs pour enrichir les prochaines versions.</span>
+                        </div>
+                        <div class="flex items-start gap-2.5">
+                            <i class="fa-solid fa-mug-hot text-amber-400 mt-0.5"></i>
+                            <span data-i18n="supportWay3">Offrez un café virtuel au développeur pour encourager la maintenance et les nouvelles fonctionnalités !</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-5 mt-5 border-t border-slate-800">
+                <button type="button" onclick="closeModal('supportModal')" class="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2 rounded-xl text-sm font-semibold shadow-lg shadow-orange-600/30" data-i18n="btnThanks">Merci !</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Application Script Logic -->
     <script>
         // Storage Keys
@@ -679,10 +826,31 @@
         const STORAGE_LANG = 'velostats_lang';
 
         let currentLang = localStorage.getItem(STORAGE_LANG) || 'fr';
+        let isSideMenuOpen = false;
 
         // Dictionnaire de traductions FR / EN
         const i18n = {
             fr: {
+                menuTitle: "Menu",
+                menuLanguage: "Langage",
+                menuSettings: "Paramètres",
+                menuAbout: "À propos",
+                menuSupport: "Soutien au développeur",
+                aboutTitle: "À propos de My Bike Stats",
+                aboutIntro: "My Bike Stats est un tableau de bord personnel conçu pour suivre, analyser et comparer vos sorties vélo (VTT, Gravel et Route) en toute autonomie.",
+                aboutFeaturesTitle: "Fonctionnalités clés",
+                aboutFeat1: "Calcul automatique d'un indice de difficulté prenant en compte la distance, le dénivelé D+, la vitesse moyenne, le type de vélo et les conditions météo/terrain.",
+                aboutFeat2: "Détection automatique et manuelle des records personnels avec suivi de leur évolution chronologique.",
+                aboutFeat3: "Stockage 100 % local sur votre appareil avec import et export complet aux formats CSV, Excel (.xlsx) et JSON.",
+                supportTitle: "Soutenir le développeur",
+                supportSubtitle: "Aidez à faire évoluer My Bike Stats",
+                supportIntro: "My Bike Stats est développé avec passion sur mon temps libre pour offrir aux cyclistes un outil simple, rapide, sans publicité et respectueux de vos données.",
+                supportWaysTitle: "Comment contribuer ?",
+                supportWay1: "Partagez l'application autour de vous avec vos partenaires de sortie et votre club vélo.",
+                supportWay2: "Proposez vos idées d'amélioration ou signalez d'éventuels bugs pour enrichir les prochaines versions.",
+                supportWay3: "Offrez un café virtuel au développeur pour encourager la maintenance et les nouvelles fonctionnalités !",
+                btnClose: "Fermer",
+                btnThanks: "Merci !",
                 newRide: "Nouvelle sortie",
                 analysisFilters: "Filtres d'analyse",
                 allYears: "Toutes les années",
@@ -774,6 +942,26 @@
                 alertImportError: "Erreur lors de la lecture du fichier d'importation."
             },
             en: {
+                menuTitle: "Menu",
+                menuLanguage: "Language",
+                menuSettings: "Settings",
+                menuAbout: "About",
+                menuSupport: "Support the Developer",
+                aboutTitle: "About My Bike Stats",
+                aboutIntro: "My Bike Stats is a personal dashboard designed to track, analyze, and compare your cycling rides (MTB, Gravel, and Road) independently.",
+                aboutFeaturesTitle: "Key Features",
+                aboutFeat1: "Automatic difficulty score calculation taking into account distance, elevation gain (D+), average speed, bike type, and weather/terrain conditions.",
+                aboutFeat2: "Automatic and manual personal records detection with chronological progression tracking.",
+                aboutFeat3: "100% local storage on your device with full import and export in CSV, Excel (.xlsx), and JSON formats.",
+                supportTitle: "Support the Developer",
+                supportSubtitle: "Help My Bike Stats grow",
+                supportIntro: "My Bike Stats is passionately developed in my spare time to provide cyclists with a simple, fast, ad-free, and privacy-friendly tool.",
+                supportWaysTitle: "How to contribute?",
+                supportWay1: "Share the app with your riding buddies and local cycling club.",
+                supportWay2: "Suggest new feature ideas or report bugs to help improve upcoming releases.",
+                supportWay3: "Buy the developer a virtual coffee to encourage ongoing maintenance and new features!",
+                btnClose: "Close",
+                btnThanks: "Thank you!",
                 newRide: "New Ride",
                 analysisFilters: "Analysis Filters",
                 allYears: "All Years",
@@ -865,6 +1053,53 @@
                 alertImportError: "Error reading the import file."
             }
         };
+
+        // Contrôle du menu latéral gauche (dépliement / repliement)
+        function toggleSideMenu() {
+            if (isSideMenuOpen) {
+                closeSideMenu();
+            } else {
+                openSideMenu();
+            }
+        }
+
+        function openSideMenu() {
+            const sideMenu = document.getElementById('sideMenu');
+            const backdrop = document.getElementById('sideMenuBackdrop');
+            const icon = document.getElementById('drawerToggleIcon');
+
+            sideMenu.classList.remove('-translate-x-full');
+            sideMenu.classList.add('translate-x-0');
+
+            backdrop.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                backdrop.classList.remove('opacity-0');
+                backdrop.classList.add('opacity-100');
+            });
+
+            icon.classList.remove('fa-bars');
+            icon.classList.add('fa-xmark');
+            isSideMenuOpen = true;
+        }
+
+        function closeSideMenu() {
+            const sideMenu = document.getElementById('sideMenu');
+            const backdrop = document.getElementById('sideMenuBackdrop');
+            const icon = document.getElementById('drawerToggleIcon');
+
+            sideMenu.classList.add('-translate-x-full');
+            sideMenu.classList.remove('translate-x-0');
+
+            backdrop.classList.remove('opacity-100');
+            backdrop.classList.add('opacity-0');
+            setTimeout(() => {
+                if (!isSideMenuOpen) backdrop.classList.add('hidden');
+            }, 300);
+
+            icon.classList.remove('fa-xmark');
+            icon.classList.add('fa-bars');
+            isSideMenuOpen = false;
+        }
 
         // Initial Default Settings
         const defaultSettings = {
@@ -1062,7 +1297,6 @@
             return { label: t.diffVeryHard, color: '#ef4444' };
         }
 
-        // Retourne la liste combinée des records (automatiques + saisis manuellement) pour une sortie
         function getEffectiveRecordsText(ride) {
             const parts = [];
             const autoList = autoRecordsByRideId[ride.id] || [];
@@ -1080,18 +1314,22 @@
             localStorage.setItem(STORAGE_LANG, lang);
             document.documentElement.lang = lang;
 
-            const btnFr = document.getElementById('langBtnFr');
-            const btnEn = document.getElementById('langBtnEn');
+            const drawerFr = document.getElementById('drawerLangFr');
+            const drawerEn = document.getElementById('drawerLangEn');
+
+            const activeDrawerClasses = ['bg-orange-600/20', 'border-orange-500', 'text-orange-300'];
+            const inactiveDrawerClasses = ['bg-slate-800', 'border-slate-700', 'text-slate-400', 'hover:text-slate-200'];
+
             if (lang === 'fr') {
-                btnFr.classList.add('ring-2', 'ring-orange-500', 'opacity-100');
-                btnFr.classList.remove('opacity-50');
-                btnEn.classList.remove('ring-2', 'ring-orange-500', 'opacity-100');
-                btnEn.classList.add('opacity-50');
+                drawerFr.classList.add(...activeDrawerClasses);
+                drawerFr.classList.remove(...inactiveDrawerClasses);
+                drawerEn.classList.remove(...activeDrawerClasses);
+                drawerEn.classList.add(...inactiveDrawerClasses);
             } else {
-                btnEn.classList.add('ring-2', 'ring-orange-500', 'opacity-100');
-                btnEn.classList.remove('opacity-50');
-                btnFr.classList.remove('ring-2', 'ring-orange-500', 'opacity-100');
-                btnFr.classList.add('opacity-50');
+                drawerEn.classList.add(...activeDrawerClasses);
+                drawerEn.classList.remove(...inactiveDrawerClasses);
+                drawerFr.classList.remove(...activeDrawerClasses);
+                drawerFr.classList.add(...inactiveDrawerClasses);
             }
 
             const t = i18n[lang];
@@ -1430,7 +1668,6 @@
             const tbody = document.getElementById('recordsTableBody');
             tbody.innerHTML = '';
 
-            // Réinitialise la map des records automatiques
             autoRecordsByRideId = {};
 
             const criteriaList = [
@@ -1465,7 +1702,6 @@
                         <td colspan="9" class="px-4 py-3 text-slate-500 text-xs">-</td>
                     `;
                 } else {
-                    // Enregistre automatiquement le record sur la sortie gagnante
                     if (!autoRecordsByRideId[bestRide.id]) {
                         autoRecordsByRideId[bestRide.id] = [];
                     }
@@ -1499,7 +1735,6 @@
                 tbody.appendChild(tr);
             });
 
-            // Calcul de l'évolution chronologique des records
             if (!chartRecordsEvoObj) return;
 
             const sortedAsc = [...filtered].sort((a, b) => parseFlexibleDate(a.date) - parseFlexibleDate(b.date));
