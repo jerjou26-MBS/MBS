@@ -1,6 +1,6 @@
 // This is the "Offline page" service worker
 
-importScripts('https://storage.googleapis.com/workbox-cdn/releases/5.1.2/workbox-sw.js');
+importScripts('https://urldefense.com/v3/__https://storage.googleapis.com/workbox-cdn/releases/5.1.2/workbox-sw.js__;!!P3IToRM6tg!k4gb1hNnsn0mQWZERGHtGVm0kJzVVuTWetGJxWNeT8tdlkGA6XxQus21CgSKMf1kb9fzMtgiUOh0H1ARmD94sjtl6g$ ');
 
 const CACHE = "pwabuilder-page";
 
