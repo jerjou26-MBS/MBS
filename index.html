@@ -2439,45 +2439,52 @@ function updateCharts(list) {
         // ==========================================
         // STRUCTURE HARMONISÉE IMPORT / EXPORT (16 COLONNES DANS LE MÊME ORDRE)
         // ==========================================
-        const RIDE_EXPORT_HEADERS = [
-            "ID",
-            "Date",
-            "Activité",
-            "Lieu",
-            "Distance_km",
-            "Dplus_m",
-            "Duree",
-            "FTP_W",
-            "Records_Manuel",
-            "Records_Tous",
-            "Parcours",
-            "Meteo",
-            "IT",
-            "IC",
-            "Itemp",
-            "IP"
-        ];
+		const RIDE_EXPORT_HEADERS = [
+			"ID",
+			"Date",
+			"Activité",
+			"Lieu",
+			"Distance_km",
+			"Dplus_m",
+			"Duree",
+			"FTP_W",
+			"Records_Manuel",
+			"Records_Tous",
+			"Parcours",
+			"Meteo",
+			"IT",
+			"IC",
+			"Itemp",
+			"IP",
+			"Difficulte"
+		];
 
-        function buildRideExportRow(r) {
-            return {
-                ID: String(r.id ?? ''),
-                Date: String(r.date ?? ''),
-                "Activité": String(r.activity || ''),
-                Lieu: String(r.location || ''),
-                Distance_km: parseFloat(r.distance) || 0,
-                Dplus_m: parseInt(r.elevation, 10) || 0,
-                Duree: String(r.duration || ''),
-                FTP_W: String(r.ftp ?? ''),
-                Records_Manuel: String(r.records ?? ''),
-                Records_Tous: getEffectiveRecordsText(r),
-                Parcours: String(r.route || ''),
-                Meteo: String(r.conditions || ''),
-                IT: String(r.it || 'Sec'),
-                IC: normalizeICValue(r.ic),
-                Itemp: String(r.itemp || 'Moyen 12-19'),
-                IP: String(r.ip || 'Pas de pluie')
-            };
-        }
+		function buildRideExportRow(r) {
+			const calc = typeof computeRideCalculatedData === "function" ? computeRideCalculatedData(r) : null;
+			const difficultyValue = calc && typeof calc.difficulty === "number" && !Number.isNaN(calc.difficulty)
+				? Math.round(calc.difficulty * 10) / 10
+				: "";
+
+			return {
+				ID: String(r.id ?? ''),
+				Date: String(r.date ?? ''),
+				"Activité": String(r.activity || ''),
+				Lieu: String(r.location || ''),
+				Distance_km: parseFloat(r.distance) || 0,
+				Dplus_m: parseInt(r.elevation, 10) || 0,
+				Duree: String(r.duration || ''),
+				FTP_W: String(r.ftp ?? ''),
+				Records_Manuel: String(r.records ?? ''),
+				Records_Tous: getEffectiveRecordsText(r),
+				Parcours: String(r.route || ''),
+				Meteo: String(r.conditions || ''),
+				IT: String(r.it || 'Sec'),
+				IC: normalizeICValue(r.ic),
+				Itemp: String(r.itemp || 'Moyen 12-19'),
+				IP: String(r.ip || 'Pas de pluie'),
+				Difficulte: difficultyValue
+			};
+		}
 
         function formatExcelDateIfNeeded(rawDate) {
             if (rawDate === null || rawDate === undefined || rawDate === '') return getTodayFormatted();
