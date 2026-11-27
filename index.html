@@ -1588,20 +1588,72 @@
             populateSettingsFields();
         }
 
-        function loadRides() {
-            const stored = localStorage.getItem(STORAGE_RIDES);
-            if (stored) {
-                try { rides = JSON.parse(stored); } catch (e) { rides = initialRides; }
-            } else {
-                rides = initialRides;
-                localStorage.setItem(STORAGE_RIDES, JSON.stringify(rides));
-            }
-        }
+		function getRideSignature(ride) {
+			if (ride && ride.id !== undefined && ride.id !== null) {
+				return String(ride.id);
+			}
+			return [
+				ride?.date ?? "",
+				ride?.time ?? ride?.startTime ?? "",
+				ride?.distance ?? "",
+				ride?.title ?? ride?.name ?? ""
+			].join("|");
+		}
+
+		function deduplicateRides(list) {
+			if (!Array.isArray(list)) return [];
+			const seen = new Set();
+			return list.filter((ride) => {
+				const key = getRideSignature(ride);
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			});
+		}
+
+		function loadRides() {
+			const stored = localStorage.getItem(STORAGE_RIDES);
+			if (stored) {
+				try {
+					const parsed = JSON.parse(stored);
+					rides = Array.isArray(parsed) ? deduplicateRides(parsed) : deduplicateRides(initialRides);
+				} catch (e) {
+					rides = deduplicateRides(initialRides);
+				}
+			} else {
+				rides = deduplicateRides(initialRides);
+				localStorage.setItem(STORAGE_RIDES, JSON.stringify(rides));
+			}
+		}
+
+		function saveRidesToStorage() {
+			rides = deduplicateRides(rides);
+			localStorage.setItem(STORAGE_RIDES, JSON.stringify(rides));
+		}
 
         function saveRidesToStorage() {
             localStorage.setItem(STORAGE_RIDES, JSON.stringify(rides));
         }
+		
+		function addImportedRides(newRides) {
+			const existingKeys = new Set(rides.map(getRideSignature));
+			let addedCount = 0;
 
+			for (const ride of newRides) {
+				const key = getRideSignature(ride);
+				if (!existingKeys.has(key)) {
+					existingKeys.add(key);
+					rides.push(ride);
+					addedCount++;
+				}
+			}
+
+			if (addedCount > 0) {
+				saveRidesToStorage();
+			}
+			return addedCount;
+		}
+		
         function populateYearFilter() {
             const t = i18n[currentLang];
             const filterYear = document.getElementById('filterYear');
@@ -2565,76 +2617,73 @@ function updateCharts(list) {
         // FONCTION IMPORT (CSV, XLSX, JSON) - MÊME STRUCTURE & MÊME ORDRE QUE L'EXPORT
         // ==========================================
         function importData(event) {
-            const t = i18n[currentLang];
-            const file = event.target.files[0];
-            if (!file) return;
+			const t = i18n[currentLang];
+			const file = event.target.files[0];
+			if (!file) return;
 
-            const reader = new FileReader();
-            const fileName = file.name.toLowerCase();
+			const reader = new FileReader();
+			const fileName = file.name.toLowerCase();
 
-            reader.onload = function(e) {
-                try {
-                    let importedRows = [];
+			reader.onload = function(e) {
+				try {
+					let importedRows = [];
 
-                    if (fileName.endsWith('.json')) {
-                        const parsed = JSON.parse(e.target.result);
-                        importedRows = Array.isArray(parsed) ? parsed : [];
-                    } else {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
-                        const firstSheetName = workbook.SheetNames[0];
-                        const worksheet = workbook.Sheets[firstSheetName];
+					if (fileName.endsWith('.json')) {
+						const parsed = JSON.parse(e.target.result);
+						importedRows = Array.isArray(parsed) ? parsed : [];
+					} else {
+						const data = new Uint8Array(e.target.result);
+						const workbook = XLSX.read(data, { type: 'array' });
+						const firstSheetName = workbook.SheetNames[0];
+						const worksheet = workbook.Sheets[firstSheetName];
 
-                        const rawMatrix = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' })
-                            .filter(row => Array.isArray(row) && row.some(cell => String(cell).trim() !== ''));
+						const rawMatrix = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' })
+							.filter(row => Array.isArray(row) && row.some(cell => String(cell).trim() !== ''));
 
-                        if (rawMatrix.length > 0) {
-                            const firstRow = rawMatrix[0].map(c => String(c).trim());
-                            const hasHeaderRow = firstRow.includes('ID') || firstRow.includes('Date') || firstRow.includes('id') || firstRow.includes('date');
+						if (rawMatrix.length > 0) {
+							const firstRow = rawMatrix[0].map(c => String(c).trim());
+							const hasHeaderRow = firstRow.includes('ID') || firstRow.includes('Date') || firstRow.includes('id') || firstRow.includes('date');
 
-                            if (hasHeaderRow) {
-                                importedRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-                            } else {
-                                importedRows = rawMatrix;
-                            }
-                        }
-                    }
+							if (hasHeaderRow) {
+								importedRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+							} else {
+								importedRows = rawMatrix;
+							}
+						}
+					}
 
-                    if (!Array.isArray(importedRows) || importedRows.length === 0) {
-                        alert(t.alertImportEmpty);
-                        return;
-                    }
+					if (!Array.isArray(importedRows) || importedRows.length === 0) {
+						alert(t.alertImportEmpty);
+						return;
+					}
 
-                    let addedCount = 0;
-                    importedRows.forEach(item => {
-                        const newRide = parseRideFromOrderedRow(item);
+					const parsedRides = importedRows
+						.map(item => parseRideFromOrderedRow(item))
+						.filter(Boolean);
 
-                        if (!rides.some(r => String(r.id) === newRide.id)) {
-                            rides.push(newRide);
-                            addedCount++;
-                        }
-                    });
+					const addedCount = addImportedRides(parsedRides);
 
-                    saveRidesToStorage();
-                    populateYearFilter();
-                    updateRecordsSection();
-                    applyFilters();
+					if (addedCount > 0) {
+						populateYearFilter();
+						updateRecordsSection();
+						applyFilters();
+					}
 
-                    alert(`${addedCount} ${t.alertImportSuccess}`);
-                    event.target.value = '';
+					alert(`${addedCount} ${t.alertImportSuccess}`);
+					event.target.value = '';
 
-                } catch (err) {
-                    console.error(err);
-                    alert(t.alertImportError);
-                }
-            };
+				} catch (err) {
+					console.error(err);
+					alert(t.alertImportError);
+				}
+			};
 
-            if (fileName.endsWith('.json')) {
-                reader.readAsText(file);
-            } else {
-                reader.readAsArrayBuffer(file);
-            }
-        }
+			if (fileName.endsWith('.json')) {
+				reader.readAsText(file);
+			} else {
+				reader.readAsArrayBuffer(file);
+			}
+		}
     </script>
 </body>
 </html>
