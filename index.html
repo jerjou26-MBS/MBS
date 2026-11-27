@@ -1538,13 +1538,15 @@
             applyFilters();
         }
 
-        window.onload = function() {
-            loadSettings();
-            loadRides();
-            populateYearFilter();
-            initCharts();
-            setLanguage(currentLang);
-        };
+		window.onload = function() {
+			loadSettings();
+			loadRides();
+			populateYearFilter();
+			updateRecordsSection();
+			applyFilters();
+			initCharts();
+			setLanguage(currentLang);
+		};
 
         function loadSettings() {
             const stored = localStorage.getItem(STORAGE_SETTINGS);
